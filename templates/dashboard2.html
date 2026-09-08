@@ -1022,9 +1022,12 @@ async function loadOverrides(){
 }
 async function saveOverrides(){
   try{
-    await window.storage.set(STORAGE_KEY, JSON.stringify(OVERRIDES), false);
+    const ok = await window.storage.set(STORAGE_KEY, JSON.stringify(OVERRIDES), false);
+    if(ok === false) return false;
+    return true;
   }catch(e){
     console.error('Could not persist reading overrides', e);
+    return false;
   }
 }
 
@@ -1066,7 +1069,13 @@ document.getElementById('readingForm').addEventListener('submit', async (e)=>{
     OVERRIDES[editingKey] = {_deleted:true};
   }
   OVERRIDES[newKey] = rec;
-  await saveOverrides();
+  const saved = await saveOverrides();
+  if(!saved){
+    delete OVERRIDES[newKey];
+    msg.textContent = 'Save failed — server database was not updated.';
+    msg.className = 'form-msg err';
+    return;
+  }
   rebuildRawFromSources();
   renderAll();
   const sel = document.getElementById('dateSelect');
