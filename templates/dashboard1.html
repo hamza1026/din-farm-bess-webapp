@@ -825,26 +825,26 @@ async function storageSet(key,value){
   _memoryFallback[key]=value; return true;
 }
 async function loadEntries(){
+  // SERVER DB IS THE MASTER:
+  // If entries already exist on the server, always use them. Never overwrite
+  // real logged readings just because the HTML seed/version changed.
   const raw = await storageGet(ENTRY_KEY);
-  const cachedVersion = await storageGet(ENTRY_VERSION_KEY);
-  if(raw && cachedVersion === SEED_ENTRIES_VERSION){
-    try{ const parsed = JSON.parse(raw); if(Array.isArray(parsed) && parsed.length) return parsed; }catch(e){}
+  if(raw){
+    try{
+      const parsed = JSON.parse(raw);
+      if(Array.isArray(parsed) && parsed.length) return parsed;
+    }catch(e){
+      console.warn('Stored entries JSON is invalid:', e);
+    }
   }
-  // If the cloud is reachable, refresh the cloud copy when the embedded seed
-  // has a newer fingerprint. If the cloud is temporarily unavailable, do NOT
-  // block the whole dashboard by attempting dozens of chunk uploads. Use the
-  // embedded seed immediately; the normal save path can sync later.
+
+  // Only seed the database when no usable entries exist yet.
   const seedCopy = JSON.parse(JSON.stringify(SEED_ENTRIES));
-  if(DIN_FARM_CLOUD_ONLINE){
-    try{
-      await storageSet(ENTRY_KEY, JSON.stringify(seedCopy));
-      await storageSet(ENTRY_VERSION_KEY, SEED_ENTRIES_VERSION);
-    }catch(e){ console.warn('Seed cloud refresh failed:', e); }
-  } else {
-    try{
-      localStorage.setItem('bess_dinfarm_'+ENTRY_KEY, JSON.stringify(seedCopy));
-      localStorage.setItem('bess_dinfarm_'+ENTRY_VERSION_KEY, SEED_ENTRIES_VERSION);
-    }catch(e){}
+  try{
+    const ok = await storageSet(ENTRY_KEY, JSON.stringify(seedCopy));
+    if(ok) await storageSet(ENTRY_VERSION_KEY, SEED_ENTRIES_VERSION);
+  }catch(e){
+    console.warn('Initial seed save failed:', e);
   }
   return seedCopy;
 }
