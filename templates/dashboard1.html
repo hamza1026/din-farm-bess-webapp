@@ -1,0 +1,2359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BESS Operations Dashboard — Din Farm, Pattoki</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js" id="chartjs-cdn1"></script>
+<script>
+// Fallback chain: if the primary CDN is blocked (common on restricted/corporate
+// networks), try alternate CDNs one by one before giving up. This runs
+// synchronously right after the first attempt so Chart is available (or a
+// clear error is shown) before the rest of the page's script runs.
+(function(){
+  var sources = [
+    'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js',
+    'https://unpkg.com/chart.js@4.4.4/dist/chart.umd.min.js'
+  ];
+  function tryNext(){
+    if (typeof Chart !== 'undefined') return; // already loaded
+    var url = sources.shift();
+    if (!url) {
+      window.__chartLoadFailed = true;
+      return;
+    }
+    var s = document.createElement('script');
+    s.src = url;
+    s.onload = function(){ if (typeof Chart === 'undefined') tryNext(); };
+    s.onerror = tryNext;
+    document.head.appendChild(s);
+  }
+  document.getElementById('chartjs-cdn1').addEventListener('error', tryNext);
+  // Also check shortly after load in case the primary tag "succeeded" (200) but didn't define Chart
+  window.addEventListener('DOMContentLoaded', function(){
+    if (typeof Chart === 'undefined') tryNext();
+  });
+})();
+</script>
+<style>
+:root{
+  --bg:#0A1220;
+  --bg-alt:#0D1626;
+  --panel:#121D30;
+  --panel-2:#0F1829;
+  --border:#213048;
+  --border-soft:#1A2A42;
+  --text:#E8EDF6;
+  --muted:#8B9AB3;
+  --muted-2:#5E6E88;
+  --grid:#4C8DFF;
+  --solar:#F5B942;
+  --chg:#2FD9A6;
+  --dis:#FB7C8C;
+  --load:#B490FF;
+  --danger:#FF5C6C;
+  --ok:#2FD9A6;
+  --signature:#22D3B4;
+  --radius:10px;
+  --mono:'JetBrains Mono', monospace;
+  --disp:'Chakra Petch', sans-serif;
+  --body:'Inter', sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(76,141,255,0.08), transparent 60%),
+    radial-gradient(1000px 500px at -10% 10%, rgba(245,185,66,0.05), transparent 55%),
+    var(--bg);
+  color:var(--text);
+  font-family:var(--body);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--signature); color:#03110F;}
+::-webkit-scrollbar{height:8px;width:8px;}
+::-webkit-scrollbar-thumb{background:var(--border); border-radius:8px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+a,button,input,select,textarea{font-family:inherit;}
+
+/* ---------- Header ---------- */
+header.top{
+  position:sticky; top:0; z-index:50;
+  background:rgba(10,18,32,0.88);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border-soft);
+}
+.top-inner{
+  max-width:1400px; margin:0 auto; padding:14px 22px;
+  display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap;
+}
+.brand{display:flex; align-items:center; gap:12px;}
+.brand-mark{
+  width:38px;height:38px;border-radius:9px;
+  background:linear-gradient(135deg, var(--signature), var(--grid));
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--disp); font-weight:700; color:#03110F; font-size:15px;
+  box-shadow:0 0 22px rgba(34,211,180,0.35);
+  flex:none;
+}
+.brand-text h1{
+  font-family:var(--disp); font-size:18px; font-weight:700; margin:0; letter-spacing:0.3px;
+}
+.brand-text p{margin:1px 0 0; font-size:12px; color:var(--muted);}
+.live-chip{
+  display:flex; align-items:center; gap:7px;
+  font-size:11.5px; color:var(--muted); border:1px solid var(--border);
+  padding:6px 11px; border-radius:100px; background:var(--panel-2);
+}
+.live-dot{width:7px;height:7px;border-radius:50%; background:var(--signature); box-shadow:0 0 8px var(--signature); animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.35;}}
+
+nav.tabs{
+  max-width:1400px; margin:0 auto; padding:0 22px;
+  display:flex; gap:4px; overflow-x:auto;
+}
+.tab-btn{
+  background:none; border:none; color:var(--muted); font-size:13px; font-weight:600;
+  padding:11px 15px; cursor:pointer; border-bottom:2px solid transparent;
+  white-space:nowrap; letter-spacing:0.2px; font-family:var(--body);
+  transition:color .15s, border-color .15s;
+}
+.tab-btn:hover{color:var(--text);}
+.tab-btn.active{color:var(--signature); border-bottom-color:var(--signature);}
+
+main{max-width:1400px; margin:0 auto; padding:22px;}
+.view{display:none;}
+.view.active{display:block; animation:fadeIn .25s ease;}
+@keyframes fadeIn{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);}}
+
+/* ---------- shared bits ---------- */
+.section-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:26px 0 12px; flex-wrap:wrap;}
+.section-head h2{font-family:var(--disp); font-size:16px; margin:0; font-weight:600; letter-spacing:0.3px;}
+.section-head .sub{font-size:12.5px; color:var(--muted);}
+.section-head:first-child{margin-top:0;}
+
+.panel{
+  background:linear-gradient(180deg, var(--panel), var(--panel-2));
+  border:1px solid var(--border-soft);
+  border-radius:var(--radius);
+  padding:18px;
+}
+.grid-2{display:grid; grid-template-columns:1.3fr 1fr; gap:16px;}
+.grid-3{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
+@media(max-width:920px){.grid-2,.grid-3{grid-template-columns:1fr;}}
+
+/* KPI cards */
+.kpi-row{display:grid; grid-template-columns:repeat(6,1fr); gap:12px;}
+@media(max-width:1100px){.kpi-row{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:600px){.kpi-row{grid-template-columns:repeat(2,1fr);}}
+.kpi{
+  background:var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius);
+  padding:14px 15px; position:relative; overflow:hidden;
+}
+.kpi::before{content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent,var(--signature));}
+.kpi .label{font-size:10.5px; text-transform:uppercase; letter-spacing:0.7px; color:var(--muted); font-weight:600;}
+.kpi .val{font-family:var(--mono); font-size:23px; font-weight:600; margin-top:6px; color:var(--text);}
+.kpi .val span{font-size:12px; color:var(--muted); font-weight:500;}
+.kpi .delta{font-size:11px; margin-top:4px; color:var(--muted-2);}
+
+/* filter bar */
+.filter-bar{
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  background:var(--panel-2); border:1px solid var(--border-soft); border-radius:var(--radius);
+  padding:10px 14px; margin-bottom:16px;
+}
+.filter-bar .grp{display:flex; align-items:center; gap:6px;}
+.filter-bar label{font-size:11px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.4px;}
+select, input[type=date], input[type=time], input[type=number], input[type=text], textarea{
+  background:var(--bg-alt); color:var(--text); border:1px solid var(--border);
+  border-radius:7px; padding:7px 10px; font-size:12.5px; outline:none;
+}
+select:focus, input:focus, textarea:focus{border-color:var(--signature);}
+.seg{display:flex; background:var(--bg-alt); border:1px solid var(--border); border-radius:8px; padding:2px; gap:2px;}
+.seg button{
+  background:none; border:none; color:var(--muted); font-size:12px; font-weight:600;
+  padding:6px 12px; border-radius:6px; cursor:pointer;
+}
+.seg button.active{background:var(--signature); color:#03110F;}
+
+.btn{
+  background:var(--signature); color:#03110F; border:none; border-radius:7px;
+  padding:8px 14px; font-size:12.5px; font-weight:700; cursor:pointer; letter-spacing:0.2px;
+}
+.btn.secondary{background:var(--bg-alt); color:var(--text); border:1px solid var(--border);}
+.btn.danger{background:transparent; color:var(--danger); border:1px solid rgba(255,92,108,0.4);}
+.btn:hover{filter:brightness(1.08);}
+.btn:active{transform:translateY(1px);}
+
+.chart-wrap{position:relative; height:280px;}
+.chart-wrap.tall{height:340px;}
+.chart-wrap.short{height:200px;}
+
+.legend-row{display:flex; gap:16px; flex-wrap:wrap; margin-top:10px;}
+.legend-item{display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--muted);}
+.legend-dot{width:9px;height:9px;border-radius:2px;}
+
+/* Availability grid (signature element) */
+.avail-wrap{overflow-x:auto; padding-bottom:6px;}
+.avail-grid{border-collapse:separate; border-spacing:3px; margin-top:6px;}
+.avail-grid th{
+  font-family:var(--mono); font-size:9.5px; color:var(--muted-2); font-weight:500;
+  padding:0 0 4px; text-align:center; width:19px;
+}
+.avail-grid td.daylabel{
+  font-family:var(--mono); font-size:11px; color:var(--muted); padding-right:8px; white-space:nowrap; text-align:right;
+}
+.hcell{
+  width:19px; height:19px; border-radius:3px; cursor:default;
+  transition:transform .1s;
+}
+.hcell:hover{transform:scale(1.35); z-index:5; position:relative;}
+.hcell.avail{background:var(--ok); box-shadow:0 0 6px rgba(47,217,166,0.35) inset;}
+.hcell.unavail{background:var(--danger); box-shadow:0 0 6px rgba(255,92,108,0.35) inset;}
+.hcell.nodata{background:var(--border-soft);}
+.hcell.assume-grid{background:rgba(47,217,166,0.35);}
+.hcell.assume-gridsolar{background:linear-gradient(135deg, rgba(47,217,166,0.55) 50%, var(--solar) 50%);}
+
+/* Data table */
+.table-scroll{overflow:auto; max-height:520px; border:1px solid var(--border-soft); border-radius:var(--radius);}
+table.data{width:100%; border-collapse:collapse; font-size:12px;}
+table.data thead th{
+  position:sticky; top:0; background:#0E1729; color:var(--muted); text-align:left;
+  padding:9px 10px; font-size:10.5px; text-transform:uppercase; letter-spacing:0.4px;
+  border-bottom:1px solid var(--border); white-space:nowrap;
+}
+table.data tbody td{padding:8px 10px; border-bottom:1px solid var(--border-soft); white-space:nowrap; font-family:var(--mono); color:var(--text);}
+table.data tbody tr:hover{background:rgba(255,255,255,0.02);}
+table.data tbody td.remarks{white-space:normal; font-family:var(--body); color:var(--muted); font-size:11.5px; min-width:260px;}
+.badge{display:inline-block; padding:2px 7px; border-radius:100px; font-size:10px; font-weight:700; font-family:var(--body);}
+.badge.avail{background:rgba(47,217,166,0.14); color:var(--ok);}
+.badge.unavail{background:rgba(255,92,108,0.14); color:var(--danger);}
+.badge.chg{background:rgba(47,217,166,0.14); color:var(--chg);}
+.badge.dis{background:rgba(251,124,140,0.14); color:var(--dis);}
+.badge.idle{background:rgba(139,154,179,0.14); color:var(--muted);}
+.badge.night{background:rgba(76,141,255,0.16); color:var(--grid);}
+.row-del{background:none; border:none; color:var(--muted-2); cursor:pointer; font-size:13px;}
+.row-del:hover{color:var(--danger);}
+.row-actions{display:flex; align-items:center; gap:10px; white-space:nowrap;}
+.row-edit{background:none; border:none; color:var(--grid); cursor:pointer; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px;}
+.row-edit:hover{color:var(--signature);}
+tr.editing-row td{background:rgba(76,141,255,0.07); border-top:1px solid rgba(76,141,255,0.35); border-bottom:1px solid rgba(76,141,255,0.35);}
+.cell-input{width:100%; min-width:58px; padding:5px 6px; font-size:12px; background:var(--bg-alt); color:var(--text); border:1px solid var(--grid); border-radius:6px; outline:none;}
+.cell-input:focus{border-color:var(--signature);}
+select.cell-input{min-width:88px;}
+.save-edit, .cancel-edit{border-radius:6px; padding:5px 10px; font-size:11px; font-weight:700; cursor:pointer; border:none;}
+.save-edit{background:var(--signature); color:#03110F;}
+.save-edit:hover{filter:brightness(1.08);}
+.cancel-edit{background:none; border:1px solid var(--border); color:var(--muted);}
+.cancel-edit:hover{color:var(--text); border-color:var(--muted);}
+
+/* Entry form */
+.entry-form{display:grid; grid-template-columns:repeat(4,1fr); gap:12px;}
+@media(max-width:920px){.entry-form{grid-template-columns:repeat(2,1fr);}}
+.field label{display:block; font-size:10.5px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:5px;}
+.field select, .field input, .field textarea{width:100%;}
+.field.span2{grid-column:span 2;}
+.field.span4{grid-column:span 4;}
+@media(max-width:920px){.field.span2,.field.span4{grid-column:span 2;}}
+.hint{font-size:11px; color:var(--muted-2); margin-top:8px;}
+.blackout-row{display:flex; align-items:center; gap:6px; margin-bottom:6px;}
+.blackout-row input[type=time]{flex:1;}
+.blackout-row .arrow{color:var(--muted-2); font-size:11px;}
+.blackout-row .removeBlackout{background:none; border:1px solid rgba(255,92,108,0.4); color:var(--danger); border-radius:6px; width:26px; height:26px; cursor:pointer; flex:none; font-size:12px; line-height:1;}
+.blackout-row .removeBlackout:hover{background:rgba(255,92,108,0.12);}
+.suggest-box{
+  margin-top:12px; background:var(--bg-alt); border:1px dashed var(--border); border-radius:8px;
+  padding:10px 12px; font-size:12px; color:var(--muted); display:none;
+}
+.suggest-box.show{display:block;}
+.suggest-box b{color:var(--signature);}
+
+/* Logic legend */
+.logic-list{display:grid; grid-template-columns:repeat(2,1fr); gap:10px;}
+@media(max-width:820px){.logic-list{grid-template-columns:1fr;}}
+.logic-item{
+  background:var(--bg-alt); border:1px solid var(--border-soft); border-radius:8px; padding:11px 13px;
+  font-size:12px; color:var(--muted); display:flex; gap:10px; align-items:flex-start;
+}
+.logic-item .n{
+  font-family:var(--mono); font-size:11px; color:var(--signature); font-weight:700; flex:none;
+  width:20px; height:20px; border-radius:5px; background:rgba(34,211,180,0.1); display:flex; align-items:center; justify-content:center;
+}
+.logic-item b{color:var(--text);}
+
+/* schedule cards */
+.sched-card{
+  border:1px solid var(--border-soft); border-left:3px solid var(--muted-2); border-radius:9px; padding:13px 15px; background:var(--bg-alt);
+  display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px; flex-wrap:wrap;
+}
+.sched-card.ongoing{border-left-color:var(--signature); box-shadow:0 0 0 1px rgba(34,211,180,0.08) inset;}
+.sched-card.expired{border-left-color:var(--muted-2); opacity:0.72;}
+.sched-card .win{font-family:var(--mono); font-size:15px; color:var(--grid); font-weight:600;}
+.sched-card .meta{font-size:11.5px; color:var(--muted); max-width:520px;}
+.sched-card .status-tag{display:inline-block; margin-left:8px; font-size:9.5px; text-transform:uppercase; letter-spacing:0.4px; font-weight:700; padding:1px 7px; border-radius:100px;}
+.sched-card.ongoing .status-tag{background:rgba(34,211,180,0.14); color:var(--signature);}
+.sched-card.expired .status-tag{background:rgba(139,154,179,0.14); color:var(--muted);}
+.sched-card .right{display:flex; align-items:center; gap:16px;}
+.sched-card .setpoint{font-family:var(--mono); font-size:20px; color:var(--signature); font-weight:700; text-align:right;}
+.sched-card .setpoint span{display:block; font-size:9.5px; color:var(--muted); font-weight:500; text-transform:uppercase;}
+.sched-card .actions{display:flex; flex-direction:column; gap:6px;}
+.sched-card .edit-btn, .sched-card .del-btn{background:none; border:none; cursor:pointer; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; text-align:right;}
+.sched-card .edit-btn{color:var(--grid);}
+.sched-card .edit-btn:hover{color:var(--signature);}
+.sched-card .del-btn{color:var(--muted-2);}
+.sched-card .del-btn:hover{color:var(--danger);}
+.sched-card.editing{flex-direction:column; align-items:stretch; border-left-color:var(--grid);}
+.sched-edit-form{display:grid; grid-template-columns:repeat(5,1fr); gap:10px; width:100%;}
+@media(max-width:920px){.sched-edit-form{grid-template-columns:repeat(2,1fr);}}
+.sched-edit-form .field label{font-size:10px;}
+.sched-edit-actions{display:flex; gap:8px; margin-top:10px;}
+
+.foot-note{font-size:11px; color:var(--muted-2); margin-top:26px; padding-top:14px; border-top:1px solid var(--border-soft); line-height:1.7;}
+
+.empty{padding:30px; text-align:center; color:var(--muted); font-size:13px;}
+.toast{
+  position:fixed; bottom:20px; right:20px; background:var(--panel); border:1px solid var(--signature);
+  color:var(--text); padding:10px 16px; border-radius:8px; font-size:12.5px; z-index:200;
+  box-shadow:0 8px 30px rgba(0,0,0,0.4); opacity:0; transform:translateY(8px); transition:all .25s; pointer-events:none;
+}
+.toast.show{opacity:1; transform:translateY(0);}
+
+/* ---------- DSG Energy company theme ---------- */
+:root{
+  --bg:#07130D;
+  --bg-alt:#0B1C13;
+  --panel:#10261A;
+  --panel-2:#0C1F15;
+  --border:#1E4430;
+  --border-soft:#173825;
+  --text:#EEF8F1;
+  --muted:#94AD9D;
+  --muted-2:#627D6C;
+  --grid:#63B3FF;
+  --solar:#F2C94C;
+  --chg:#39D98A;
+  --dis:#FF7A8A;
+  --load:#B9A0FF;
+  --danger:#FF5C6C;
+  --ok:#39D98A;
+  --signature:#19B86B;
+  --radius:10px;
+}
+body{
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(25,184,107,0.12), transparent 60%),
+    radial-gradient(1000px 500px at -10% 10%, rgba(25,184,107,0.07), transparent 55%),
+    var(--bg);
+}
+.brand-mark{
+  width:54px !important;
+  height:54px !important;
+  border-radius:8px !important;
+  background:#fff !important;
+  box-shadow:0 0 18px rgba(25,184,107,0.22) !important;
+  overflow:hidden;
+  padding:2px;
+}
+.brand-mark img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  display:block;
+}
+.tab-btn.active{color:var(--signature);border-bottom-color:var(--signature);}
+.btn{background:var(--signature);}
+.seg button.active{background:var(--signature);}
+.kpi::before{background:var(--accent,var(--signature));}
+.live-dot{background:var(--signature);box-shadow:0 0 8px var(--signature);}
+select:focus,input:focus,textarea:focus{border-color:var(--signature);}
+.save-edit{background:var(--signature);}
+.logic-item .n{color:var(--signature);background:rgba(25,184,107,0.12);}
+.sched-card.ongoing{border-left-color:var(--signature);box-shadow:0 0 0 1px rgba(25,184,107,0.10) inset;}
+.sched-card.ongoing .status-tag{background:rgba(25,184,107,0.14);color:var(--signature);}
+.sched-card .setpoint{color:var(--signature);}
+.toast{border-color:var(--signature);}
+::selection{background:var(--signature);color:#03110F;}
+
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <div class="brand-mark"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOEAAADhCAMAAAAJbSJIAAABL1BMVEX///8AAAAAm08AfkEAfEABiUlYWFoAikgAnE4AdjekpKX5//4BmU03NzcAgkQAlkjz//pwpYsAk0wjpGExMTFeXmA+Pj4qKioAh0Ncm3tSUlTz8/Pr6+tISEiUlJSdnZ1LqHZ/f39QoXgZFxjg4ODR0dG1tbUNCgxKSkrW1ta5ubkkJCQRkFJnZ2cfHx/FxcUAiT12dnYAfDc3qWyMjIx7tZgApVDg9u8AcDFkZGQAmEOs28MAjj4Aq1V6enoRj1JhrYa83M4pjlyZzbJhsYdLYFQlTjiLy6twvpVFr3i24c3n+vHR7+EhnWFYuoYAaCUwrm0AVB5ha2Wjz7yk4sZCr3UAXTE3nmhxfHaMxqs/Yk2En5M5lWYARx1RoHlmrIoXg1IqSzoAbDong1aGs6GvbVKfAAANjUlEQVR4nO2bC3ebRhbHB9uRLRQsR0Wg8hBWeAhJBoSKbVlxlTjJNmmstNu6bba7adJN8/0/w96ZAYRs5N2za+Szu/eXExmGy+j+584LZkQIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiDIv41z3w5UjRPdtwdVE+j37UHFRMF9e1AxuibetwuV0DjIqmbi/891NI3Fi5fvjp7+iZ+5vna/7tw5By/enTdnzdnU4+eB1rtfh+6aJ1/M9vaazda7b3gtFX0tldoomjVu3LhytYx/weT2XO+Eg+9mJyezt68WlwaPnOFrmmixw6u3X93k58PXTy6v5fHi8Isy3hRs3rz8qtRmUbXAxReg71vmSpd3L4GmabFXM+jxqxmEd4Ut+D+bNV8XNb5pXbdKaeVWl4fn5SZ7b6+V1p0L3Do52fsJDg4WV2c8yVJ8TXF8jUl83dzb2irxa9Z6kufx5Hyr1GZva3aYCXxL8ykx2tqbva5U4CkIhHrSePPd1ux7NlHTHWL0FMUN/BptlQdfNa85lp01X2WFNN4qB0zPeTk0DptrbIDZmzXO3QWNn0HgKXny5xPgG5bUk2KXDNpeYpox83+tb6n35OVs7+HDUouHW2k9fXO+t17h3tFBdQpfzU72FgffnXz99dcnrS5NcSXflAKH6KLiKy6zaW6BggzwOpfTPKXXD1r5xb2CYZoyY5F+PbtxpWjza2UCT5t7syenX3zN+IG1O980TdDoEUMxFTZ1u2zOHjaLQA19SKvpw+ZLlsn50tnmTca0GA6bt5k0x5V1NlC03y62uMC9H2mKJZkMVScDiVdT8uro6O3bI/pBOToa55LOL1cUnr89LOFFUWGzVWZyeFWRwMvzvdlPX52cMIVT2s8YMkROAYUyEY2BpLllz1CNJ63U4XPq2emYn7Ra63uMwyavys2XFTa5Ep7M9n5+fZLC+hlLluQzTVGUQFcVY3DmDktvXLS4x83XMNE5HbcY5y/WfxMoZLzdwAymyMtm8+etVGCHTWJqcgKDhaTI0VBSTJ2I8/I7X6QeHxKyVHhLVXvMTVrv7l7EbRwc8aGOKfyF1ccB7W0cWZFIW1EkjURS+a2ZqneF4/NbRu57UkgbUDphOWn9ZZkuyqroqFBVVYeERumtjd2bClvjXw/WTarfjznv8qTGZU51TfNiTBsTn6J8cpfpiqqQQIIYSoYzd0tvbRwVFE5Shbvj3aOnT49S4ODps4vU/nRB/y0Wp3kOz8aTCVc96XysSuMbKPyH6fD910K60RsMQkmS5G635rIetstYq3A3o7W7SmfymI90YteidPN3Iy/GBbPx84okXtHqxXv6TrJMpl74MigcDaRwMIAzx4SnDa22opAroAoPHuyuZ/ycSYx9jRGn9y86q1a3dMP/CRfjtDW1Hta9PNURoFe1bAhhMBypLB3Gfh8oKnzKAsYUkuPxbmeNwM7u+BlTCGMs5GBmb/Aer97Cje6exSRT2NoWG2+O/8a6057g6jBM2HIYmfKIKRyq0CoVZUVhJ48huXywTiBlQttiQOsEtOz0+exqsmrT+ViNwkv2PVzi/vPx+Hs6vOtCj/iSS7pCYo3k0KOqk1CVZVldUciqZuc9L6rtzoO1dI7Boj1SVchD5TX94Pk1+6oUNugXLevT7ifaq3RVEodqPyJDYySrPda9SEKfsqqQecYVktP3k841dnPvn4GBz3MQeE2/yqwf7FarkHxkjjCB8DW7v+k0hIbVh/IWDFpR+w57czNPGMVbn3Lf3mfnF8cfPjwust/pFBRaPIeEv/35fJySxbIyhRcT8GM/L2z6srQ3dAWVKhwSXbW9NcMhaezzILwvvwwcfMwC9QzOFhcpq0aXmU1VChu/7zMePKAfOxAkQ9T7tMn0k4FPRG04or6+f84oqjmFsnlwq0LIvEOz3Z88g5P3E87za0ZPuQOVKYQGsb2f8wOLl2mPRiM7cPv9hAwEj2StZn+yX7jxeEJD3+k8viXz5zxbpvBDhyu5XiJpEU8qU9j4fWdnO2X/N5Y0F8KR3Xb7ozAkXggJl6kX+78v77uoc4dv8+x0p6gwy+Oy3KYyheRiurO9w6nDM/68ByNhX2i7djjqiwM2ZYNwZd6dchbH9TSJjXXkoIyL5/tFhVkm7xdFmz+y5OoUkuNpKnDnkwjTmT5MaAxrYNuhIGrsyeminoZ4e7s+pdTr9bxu1+l88rJeBvjOb5x8oAqzirK/YrSfVaAKFZIvM4m/GaTWt21B1WFaYwteINAJyKK+nddjJpOKy04nxyyLj/XtErLbWA38UGrCM8xsquIgk/h3Egk2KOwNY5L0vZrQJrShlHuWiuCPBKfT24zq9FXh8eQ2k+365+oENkjjEZP4KSGiALFLEkGQiB4K9P3FYqe+k/ZFvBhSZTssRvVsdHu0JkLce/pMuLi1ELanp7e4eAdc1UHjL+4wiGIbKqfdb1t6m44TF/WdMpja7XoukByUmnHLKa/Jx9PtnbxTKxiwpGl1b4RTTh9N679B2GD4G0IcayOBDo2NZS9U4tn0j8Kq2MX0pvOc6SP+3qLx5drMtqdfVi2Qavz8oyUIsiib3UgcdenLmYs/vi/tJCnT6e9XK4/ln6dr7PIG1vg8XWPzqcJGuIIz7BpBMPec1KEv1/Po6saq5udHZawUw+XVP7dBEAT5b8cQC1jp5ktHtAa5hQfpbpZeNE5N3GWSt1wNiMQVaMautbzJsGgO5YsHd4vj1wqkO/dcSNTynaY9rZZuJXJXjfkanFdM9K30pq5Wu5lxQBONLNOatvIOqCp68J3tnBpXGNAkLVtETGrtVGFcMM0NVtLaGl8FMLSV1DRjg9qylbuIXq9tZDNrm5alz9A0zeT+mazczXS5IcljSEOg5ZgsUWfGaVKtXfNZNWTRXppqaWwjH8oAstVZYXg3vKkC6sbcy+HtzUwlcLcSX/O5WFoIvaXxIFOYJ0I15PWR1XPRu54x6UK677I6rG1oty7ET7lRlgoPqq+whpKYWhpOUK5c3wiuK1AUWYUWzTRaLjUt+76AllJEi9AclF2/ezTTvKlQgkS3rcAnXTVKTJ9vQKHKbyqUIDFTaJk+D7wLplJZMzNMqBHKskFUj0/3J/CFQitPlBVFdkgbhNJFlUQxJa6QKp9z43xJUJfBKleomApXCKaybnVz8r0PEV/RMs1N7ZmnCiWGvNwgDArVAV06gms+6UqKxNWztShunDcinS6MxxaHbgPge6xoFqQmZcjLgaHL9u7IG/vZg5k7IS0VqnSdFP72RuCbH8MHVygziUzmUmFIT2UOXOdaXNA9ImdL+0KdZEvpm/tRgClLkjqihGaeCMJC1g8kIaijFtxBlUaDrm+oYb40rNvSCiPel9Is9LMRM16NIYloAW5uy7yiymqQTrnyxFCWbd69WzaLzShVKMvq/Jqx3qeLjCOV2YF0hbUvl2ahD7kplKJa2EEeQbGt2exRBcpIDa3ribaq9tMBTGRrUiEPAYTEvrFdSgBhcdJVqPwkEXkH4kLJ9DMVmiqPigrhmr25GEqjkX2j37ZHo0whGQpUV5Kmq/aNoQWKoA/dhmPnBQG4fbYYydGgFIsK4Vp/cwo1OwzVXsacDwL9kL934w7Z4ShVKIWjUFoac7HCaCSwJwd6kA0iDpyEtdQQ2rkdL7/S7YPhhoZ7Qmuhbdv9DIF3cYIdLhWSXj/s8xB0hTAsGHPZkMYUEi8/InS5LjeFEgpXFNKiWLMGWwUalZjRzxTawnK8ousZaSVTVox7uTFvnAk9TKvfQOjbIDLFzoNLqMIw3KRCEgsF2txpYKlwDmdpCPR20TjOjbMf3cChnba+gVw0LW4FdFez3wDFB3ceDPr4vewKovQRnTG48ULAKhhby9cEK0/5Kx2wYa1kjyDI/wN6/sEoThh1Stk9ztKC/3Fu6TnWZbIx5mf03V5+WnyHGfWkuHRTe74ls8ZeVURmd75+Km3Oe2xucFspVEpPc3StTbwgIV2ie0PdC+ZE7wVsjI4NdsEi7pCIRhy4ehLoSSwTMaazWSdJ6NDtU3lRz3Liua73YseYBxEZgoUVw2X6VGaRyNVq3tAgImRNevEmR/x51BOjNtGIOOw5XhQb9KgbMcdI7Og+sYZzI2nrbWI4ptEmQwsk8ddMPYNt8jN162xgDYnmDK1k6JxFHvF1BW7WaPU0Y5qn5cKo2HNIYMQwbBqb/MVxTGoaqcH3upbTPSOxXiOu1zOIxhU6cxi6XStOPC8KIh/sRJfUyDCgu1LkWo3uzvR14g0tl5jdrjtPul40JGeG1O0abIpE38jU4C4vogpjIyHJvCve5tIdE+jgkEkUF2qO3IMy9kGSl0QsSoFDJDdwieANBeIljmIExD0bqLo7gIlYBDU1gfmKGEQxVRh7ri4mrjP0oHxMN+KlRGdsShRHw95ATIZnoBCONtkm2XcNiEFf2g50OB0Q3YAwMu8cHS4M6AUdPiPPoeYupER0EcbR2U8z4TI0XwNOhp5Or8D9kAnEbMDzhh4aTsgQGidcZDnc+6wtCoJN9gUIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiCl/ANu5RHtiYsN2QAAAABJRU5ErkJggg==" alt="DSG Energy logo"></div>
+      <div class="brand-text">
+        <h1>BESS Operations Dashboard</h1>
+        <p>Din Farm, Pattoki &nbsp;•&nbsp; Solar + Battery + WAPDA hybrid site</p>
+      </div>
+    </div>
+    <div class="live-chip"><span class="live-dot"></span><span id="dataRangeChip">loading…</span></div>
+  </div>
+  <nav class="tabs" id="tabNav">
+    <button class="tab-btn active" data-view="overview">Overview</button>
+    <button class="tab-btn" data-view="trends">Power Trends</button>
+    <button class="tab-btn" data-view="availgrid">Availability Grid</button>
+    <button class="tab-btn" data-view="outage">Nightly Outage</button>
+    <button class="tab-btn" data-view="schedule">WAPDA Charging Schedule</button>
+    <button class="tab-btn" data-view="simulator">Simulator</button>
+    <button class="tab-btn" data-view="log">Data Log &amp; Entry</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- ============ OVERVIEW ============ -->
+<div class="view active" id="view-overview">
+  <div class="filter-bar">
+    <div class="grp">
+      <label>Period</label>
+      <div class="seg" id="periodSeg">
+        <button data-period="day" class="active">Daily</button>
+        <button data-period="month">Monthly</button>
+        <button data-period="year">Yearly</button>
+        <button data-period="all">All-time</button>
+      </div>
+    </div>
+    <div class="grp" id="periodPickerWrap">
+      <label>Select</label>
+      <select id="periodPicker"></select>
+    </div>
+  </div>
+
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <div class="grid-2" style="margin-top:16px;">
+    <div class="panel">
+      <div class="section-head" style="margin-top:0;">
+        <h2>Load vs Solar vs Grid vs Generator</h2>
+        <span class="sub" id="ovChartSub">kW, logged readings for the selected period</span>
+      </div>
+      <div class="chart-wrap tall"><canvas id="chartLoadSolarGrid"></canvas></div>
+      <div class="legend-row">
+        <span class="legend-item"><span class="legend-dot" style="background:var(--load)"></span>Load</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--solar)"></span>Solar</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--grid)"></span>Grid feed</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--danger)"></span>Generator</span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="section-head" style="margin-top:0;">
+        <h2>Grid availability</h2>
+        <span class="sub" id="gridAvailSub">Available vs unavailable hours for the selected period</span>
+      </div>
+      <div class="chart-wrap short"><canvas id="chartGridAvail"></canvas></div>
+      <div class="legend-row" style="justify-content:center;gap:18px;margin-top:4px;">
+        <span class="legend-item">Grid available: <b id="gridAvailHours">–</b> h</span>
+        <span class="legend-item">Grid unavailable: <b id="gridUnavailHours">–</b> h</span>
+      </div>
+      <div class="section-head"><h2 style="font-size:13px;">Battery status mix</h2></div>
+      <div class="chart-wrap short"><canvas id="chartStatusMix"></canvas></div>
+    </div>
+  </div>
+
+  <div class="section-head"><h2>SOC trend</h2><span class="sub">State of charge across the selected period, with charge / discharge power overlay</span></div>
+  <div class="panel">
+    <div class="chart-wrap tall"><canvas id="chartSOC"></canvas></div>
+    <div class="legend-row">
+      <span class="legend-item"><span class="legend-dot" style="background:var(--signature)"></span>SOC %</span>
+      <span class="legend-item"><span class="legend-dot" style="background:var(--chg)"></span>Charging (kW)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:var(--dis)"></span>Discharging (kW)</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TRENDS ============ -->
+<div class="view" id="view-trends">
+  <div class="section-head" style="margin-top:0;">
+    <h2>Monthly rollup</h2><span class="sub">One bar per month, auto-aggregated from every logged entry — Max/Min SOC and Min/Max Solar shown instead of averages, since an average hides the real extremes (site solar has been logged as low as single digits and as high as ~490kW against a plant capacity of ~520kW)</span>
+  </div>
+  <div class="panel"><div class="chart-wrap tall"><canvas id="chartMonthly"></canvas></div></div>
+
+  <div class="filter-bar" style="margin-top:16px; margin-bottom:0;">
+    <div class="grp"><label>Month</label><select id="trendsMonthFilter"></select></div>
+    <span class="sub" id="trendsMonthSub"></span>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="section-head" style="margin-top:0;"><h2>Grid availability by day</h2></div>
+      <div class="chart-wrap"><canvas id="chartDailyAvail"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="section-head" style="margin-top:0;"><h2>Max / Min SOC by day</h2></div>
+      <div class="chart-wrap"><canvas id="chartDailySOC"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AVAILABILITY GRID ============ -->
+<div class="view" id="view-availgrid">
+  <div class="section-head" style="margin-top:0;">
+    <h2>Hour-by-hour grid availability</h2>
+    <span class="sub">Logged hours show the recorded status; every other hour is grid available by default — it's not "assumed", it's just that no explicit reading was logged for it, since outages are what actually get logged at this site.</span>
+  </div>
+  <div class="panel">
+    <div class="filter-bar" style="margin-bottom:12px;">
+      <div class="grp"><label>Solar timing mode</label><select id="solarTimingMode"><option value="auto" selected>Auto — sunrise / sunset</option><option value="manual">Manual fallback</option></select></div>
+      <div class="grp"><label>Latitude</label><input type="number" id="siteLat" step="0.000001" value="31.02021" style="width:110px;"></div>
+      <div class="grp"><label>Longitude</label><input type="number" id="siteLon" step="0.000001" value="73.85333" style="width:110px;"></div>
+      <div class="grp"><label>Daylight start</label><input type="time" id="daylightStart" value="06:00"></div>
+      <div class="grp"><label>Daylight end</label><input type="time" id="daylightEnd" value="18:00"></div>
+      <span class="sub" id="solarTimingStatus">Auto sunrise/sunset uses the site coordinates and date.</span>
+    </div>
+    <div class="avail-wrap"><table class="avail-grid" id="availGridTable"></table></div>
+    <div class="legend-row">
+      <span class="legend-item"><span class="legend-dot" style="background:var(--ok)"></span>Grid available (logged reading)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:var(--danger)"></span>Grid not available (logged reading)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:rgba(47,217,166,0.35)"></span>Grid available (no explicit reading — default state)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:linear-gradient(135deg, rgba(47,217,166,0.55) 50%, var(--solar) 50%)"></span>Grid+Solar available (no explicit reading, daylight hours)</span>
+    </div>
+  </div>
+  <div class="grid-3" style="margin-top:16px;">
+    <div class="panel kpi"><div class="label">Avg hrs available / day</div><div class="val" id="avgHrsAvail">–</div></div>
+    <div class="panel kpi"><div class="label">Avg hrs unavailable / day</div><div class="val" id="avgHrsUnavail">–</div></div>
+    <div class="panel kpi"><div class="label">Longest outage seen</div><div class="val" id="longestOutage">–</div></div>
+  </div>
+</div>
+
+<!-- ============ OUTAGE PATTERN ============ -->
+<div class="view" id="view-outage">
+  <div class="section-head" style="margin-top:0;">
+    <h2>Nightly outage window — 19:00 to 05:00</h2>
+    <span class="sub">Full night window (evening to early morning). Auto-pulled from any logged entry between 19:00 and 05:00 the next morning.</span>
+  </div>
+  <div class="panel">
+    <div class="section-head" style="margin-top:0;"><h2>Load during the gap</h2><span class="sub">Each bar is a logged reading during the night window — bar colour shows whether WAPDA was up or down at that moment, and the tooltip adds the BESS status for that same reading</span></div>
+    <div class="chart-wrap tall"><canvas id="chartOutageLoad"></canvas></div>
+    <div class="legend-row">
+      <span class="legend-item"><span class="legend-dot" style="background:var(--ok)"></span>WAPDA available</span>
+      <span class="legend-item"><span class="legend-dot" style="background:var(--danger)"></span>WAPDA not available</span>
+    </div>
+    <p class="hint">Load during this window has ranged <b id="outageLoadRange" style="color:var(--text)">–</b> across logged nights. Out of <b id="outageReadingCount" style="color:var(--text)">–</b> logged night readings, WAPDA was down for <b id="outageGridDownCount" style="color:var(--text)">–</b> of them — during those, the BESS was <b id="outageBessDuringOutage" style="color:var(--text)">–</b>; when WAPDA was up, the BESS was <b id="outageBessDuringGrid" style="color:var(--text)">–</b>.</p>
+  </div>
+  <div class="section-head"><h2>Logged readings in the window</h2></div>
+  <div class="panel">
+    <div class="table-scroll" style="max-height:320px;">
+      <table class="data" id="outageTable"><thead></thead><tbody></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SCHEDULE ============ -->
+<div class="view" id="view-schedule">
+  <div class="section-head" style="margin-top:0;">
+    <h2>WAPDA night-charging schedule</h2>
+    <span class="sub">Load is deducted from the setpoint; the remainder charges the BESS from grid.</span>
+  </div>
+  <div id="scheduleCards"></div>
+
+  <div class="section-head"><h2>Log a schedule change</h2><span class="sub">Add a new row whenever the charging window or setpoint changes</span></div>
+  <div class="panel">
+    <div class="entry-form">
+      <div class="field"><label>Effective from</label><input type="date" id="schFrom"></div>
+      <div class="field"><label>Window start</label><input type="time" id="schStart" value="22:00"></div>
+      <div class="field"><label>Window end</label><input type="time" id="schEnd" value="04:30"></div>
+      <div class="field"><label>Setpoint (kW)</label><input type="number" id="schSetpoint" placeholder="e.g. 190"></div>
+      <div class="field span4"><label>Note (optional)</label><input type="text" id="schNote" placeholder="Why the change, anything to remember"></div>
+    </div>
+    <div style="margin-top:12px;"><button class="btn" id="addSchedule">Save schedule change</button></div>
+  </div>
+
+  <div class="section-head"><h2>WAPDA charge OFF schedule</h2><span class="sub">Log the exact date + time night-time BESS charging from WAPDA was manually switched off. WAPDA still feeds the load as normal — only the BESS charging is suspended from this point on, until a matching "charging ON" event is logged below.</span></div>
+  <div id="offEventCards"></div>
+  <div class="panel">
+    <div class="entry-form">
+      <div class="field"><label>Off date</label><input type="date" id="offEvDate"></div>
+      <div class="field"><label>Off time</label><input type="time" id="offEvTime" value="22:00"></div>
+      <div class="field span2"><label>Note (optional)</label><input type="text" id="offEvNote" placeholder="why it was turned off"></div>
+    </div>
+    <div style="margin-top:12px;"><button class="btn" id="addOffEvent">Save charging OFF</button></div>
+  </div>
+
+  <div class="section-head"><h2>WAPDA charge ON schedule</h2><span class="sub">Log the exact date + time night-time BESS charging from WAPDA was switched back on, along with the setpoint it resumed at. This closes out the most recent "charging OFF" event above.</span></div>
+  <div id="onEventCards"></div>
+  <div class="panel">
+    <div class="entry-form">
+      <div class="field"><label>On date</label><input type="date" id="onEvDate"></div>
+      <div class="field"><label>On time</label><input type="time" id="onEvTime" value="04:00"></div>
+      <div class="field"><label>Setpoint (kW)</label><input type="number" id="onEvSetpoint" placeholder="e.g. 190"></div>
+      <div class="field"><label>Note (optional)</label><input type="text" id="onEvNote" placeholder="anything to remember"></div>
+    </div>
+    <div style="margin-top:12px;"><button class="btn" id="addOnEvent">Save charging ON</button></div>
+  </div>
+
+  <div class="section-head"><h2>Source-of-power logic</h2><span class="sub">The rules the site follows — used to auto-suggest remarks when you log a new entry</span></div>
+  <div class="panel">
+    <div class="logic-list" id="logicList"></div>
+  </div>
+</div>
+
+<!-- ============ SIMULATOR ============ -->
+<div class="view" id="view-simulator">
+  <div class="section-head" style="margin-top:0;">
+    <h2>What-if BESS simulator</h2>
+    <span class="sub">Set solar, load, multiple WAPDA outage windows and generator assumptions. The simulator runs at 15-minute operating points, carries SOC continuously through the full 24-hour cycle, and can start the displayed day at any hour.</span>
+  </div>
+
+  <div class="panel">
+    <div class="entry-form" id="simForm">
+      <div class="field"><label>BESS capacity (kWh)</label><input type="number" id="simCapacity" value="645"></div>
+      <div class="field"><label>Max charge/discharge (kW)</label><input type="number" id="simMaxPower" value="330"></div>
+      <div class="field"><label>Generator max power (kW)</label><input type="number" id="simGenMaxPower" value="500"></div>
+      <div class="field"><label>WAPDA minimum import range (kW)</label>
+        <div style="display:flex; gap:6px;">
+          <input type="number" id="simGridMinImport" value="10" min="0">
+          <input type="number" id="simGridMaxImport" value="15" min="0">
+        </div>
+      </div>
+      <div class="field"><label>Simulation start hour</label><input type="number" id="simStartHour" value="6" min="0" max="23"></div>
+      <div class="field"><label>Start SOC (%)</label><input type="number" id="simStartSoc" value="98"></div>
+      <div class="field"><label>Min / Max SOC (%)</label>
+        <div style="display:flex; gap:6px;">
+          <input type="number" id="simMinSoc" value="10">
+          <input type="number" id="simMaxSoc" value="98">
+        </div>
+      </div>
+      <div class="field"><label>Solar peak (kW, midday)</label><input type="number" id="simSolarPeak" value="400"></div>
+      <div class="field"><label>Daylight window (start–end)</label>
+        <div style="display:flex; gap:6px;">
+          <input type="time" id="simSunrise" value="06:00">
+          <input type="time" id="simSunset" value="18:00">
+        </div>
+      </div>
+      <div class="field"><label>Load baseline (kW)</label><input type="number" id="simLoad" value="170"></div>
+      <div class="field span2">
+        <label>Load windows (optional — overrides baseline)</label>
+        <div id="simLoadWindowList"></div>
+        <button class="btn secondary" id="addLoadWindow" type="button" style="margin-top:6px;">+ Add load window</button>
+      </div>
+      <div class="field span2">
+        <label>Blackout windows (WAPDA off)</label>
+        <div id="simBlackoutList"></div>
+        <button class="btn secondary" id="addBlackout" type="button" style="margin-top:6px;">+ Add blackout window</button>
+      </div>
+      <div class="field"><label>Night charge window</label>
+        <div style="display:flex; gap:6px;">
+          <input type="time" id="simNightStart" value="22:00">
+          <input type="time" id="simNightEnd" value="04:00">
+        </div>
+      </div>
+      <div class="field"><label>Night charge setpoint (kW)</label><input type="number" id="simSetpoint" value="190"></div>
+      <div class="field span2" style="display:flex; align-items:flex-end;">
+        <button class="btn" id="runSim" style="width:100%;">Run 24h simulation</button>
+      </div>
+    </div>
+    <p class="hint"><b>BESS sign convention:</b> negative kW = charging, positive kW = discharging. BESS capacity defaults to 645 kWh and max charge/discharge defaults to 330 kW. When WAPDA is available, the generator is always OFF. In daylight, WAPDA contributes a varying minimum 10–15 kW while solar supplies the balance; surplus solar charges BESS. At night, WAPDA directly supplies the load. During a WAPDA outage, solar supplies load first; surplus charges BESS, while a solar deficit is supplied by BESS. If BESS energy is insufficient to sustain the full 15-minute interval down to Min SOC, the generator starts in that same interval and supplies the remaining deficit. Multiple blackout and load windows are supported.</p>
+  </div>
+
+  <div class="grid-3" style="margin-top:16px;">
+    <div class="panel kpi"><div class="label">Min SOC reached</div><div class="val" id="simMinSocOut">–</div></div>
+    <div class="panel kpi"><div class="label">Energy from grid (est.)</div><div class="val" id="simGridEnergy">–</div></div>
+    <div class="panel kpi"><div class="label">Energy from solar (est.)</div><div class="val" id="simSolarEnergy">–</div></div>
+  </div>
+
+  <div class="section-head"><h2>Simulated 24-hour run</h2><span class="sub">SOC %, solar, load and BESS charge/discharge power by hour</span></div>
+  <div class="panel">
+    <div class="chart-wrap tall"><canvas id="chartSim"></canvas></div>
+    <div class="legend-row">
+      <span class="legend-item"><span class="legend-dot" style="background:var(--signature)"></span>SOC %</span>
+      <span class="legend-item"><span class="legend-dot" style="background:var(--solar)"></span>Solar kW</span>
+      <span class="legend-item"><span class="legend-dot" style="background:var(--load)"></span>Load kW</span>
+      <span class="legend-item"><span class="legend-dot" style="background:var(--chg)"></span>Charging kW</span>
+      <span class="legend-item"><span class="legend-dot" style="background:var(--dis)"></span>Discharging kW (+)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:var(--danger)"></span>Generator kW</span>
+      <span class="legend-item"><span class="legend-dot" style="background:var(--danger)"></span>Grid down</span>
+    </div>
+    <p class="hint">On the x-axis: ⚡ marks an hour fully inside a blackout window, ◐ marks an hour only partly covered by one (e.g. a blackout starting at 14:15 partially affects the 14:00 hour).</p>
+  </div>
+
+  <div class="section-head"><h2>Hour-by-hour breakdown</h2></div>
+  <div class="panel" style="padding:0;">
+    <div class="table-scroll" style="max-height:400px;">
+      <table class="data" id="simTable"><thead></thead><tbody></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- ============ LOG & ENTRY ============ -->
+<div class="view" id="view-log">
+  <div class="section-head" style="margin-top:0;">
+    <h2>Add a new reading</h2>
+    <span class="sub">Same fields as the site log book — saved instantly, and every chart above updates automatically.</span>
+  </div>
+  <div class="panel">
+    <div class="entry-form">
+      <div class="field"><label>Date</label><input type="date" id="fDate"></div>
+      <div class="field"><label>Time</label><input type="time" id="fTime"></div>
+      <div class="field"><label>Grid status</label>
+        <select id="fGridStatus"><option>Available</option><option>Not Available</option></select>
+      </div>
+      <div class="field"><label>Grid healthy?</label>
+        <select id="fGridHealthy"><option>Yes</option><option>No</option></select>
+      </div>
+      <div class="field"><label>Grid total power (kW)</label><input type="number" id="fGridPower" placeholder="0"></div>
+      <div class="field"><label>BESS mode</label>
+        <select id="fBessMode"><option>PQ</option><option>VSG</option></select>
+      </div>
+      <div class="field"><label>BESS status</label>
+        <select id="fBessStatus"><option>Charging</option><option>Discharging</option><option>Idle</option></select>
+      </div>
+      <div class="field"><label>SOC (%)</label><input type="number" id="fSOC" placeholder="0-100"></div>
+      <div class="field"><label>BESS power (kW, −chg/+dis)</label><input type="number" id="fBessPower" placeholder="e.g. -90 or 165"></div>
+      <div class="field"><label>Solar power (kW)</label><input type="number" id="fSolar" placeholder="0"></div>
+      <div class="field"><label>Generator power (kW)</label><input type="number" id="fGenerator" placeholder="0"></div>
+      <div class="field"><label>Load (kW)</label><input type="number" id="fLoad" placeholder="0"></div>
+      <div class="field span2"><label>Remarks</label><input type="text" id="fRemarks" placeholder="auto-suggested below, editable"></div>
+      <div class="field span4">
+        <div class="suggest-box" id="suggestBox"></div>
+      </div>
+    </div>
+    <div style="margin-top:14px; display:flex; gap:10px;">
+      <button class="btn" id="addEntry">Save entry</button>
+      <button class="btn secondary" id="exportCsv">Export all as CSV</button>
+      <button class="btn secondary" id="exportJson">Export all as JSON</button>
+    </div>
+  </div>
+
+  <div class="section-head">
+    <h2>Full log</h2>
+    <span class="sub" id="logCount">–</span>
+  </div>
+  <div class="filter-bar">
+    <div class="grp"><label>Date</label><select id="logDateFilter"><option value="">All dates</option></select></div>
+    <div class="grp"><label>Grid</label><select id="logGridFilter"><option value="">Any</option><option>Available</option><option>Not Available</option></select></div>
+    <div class="grp"><label>BESS</label><select id="logBessFilter"><option value="">Any</option><option>Charging</option><option>Discharging</option><option>Idle</option></select></div>
+  </div>
+  <div class="panel" style="padding:0;">
+    <div class="table-scroll">
+      <table class="data" id="logTable"><thead></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <div class="foot-note">
+    Data entered here is saved to the central Din Farm database. All authorized users see the same updated data.
+    Historical rows (07–24 Aug 2026) were imported from the original BESS Daily Operation Log Book — including the 16–20 Aug gap, logged as
+    "system on bypass due to a faulty breaker; readings resumed after breaker replacement." Charge-source % is estimated from instantaneous
+    power readings (not integrated energy), so treat it as indicative rather than a metered figure. Generator (DG) power defaults to 0 kW on
+    every historical reading — it hadn't been used yet — add it going forward whenever the genset actually runs.
+  </div>
+</div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   DATA
+   ============================================================ */
+const SEED_ENTRIES = [{"date":"2026-08-07","time":"13:00","gridStatus":"Available","gridHealthy":"Yes","gridPower":29,"bessMode":"PQ","bessStatus":"Charging","soc":54,"bessPower":-30,"solarPower":180,"load":181,"remarks":"Grid healthy, WAPDA+Solar feeding load, BESS charging from PV","_id":"seed_0_2026-08-07_13:00"},{"date":"2026-08-07","time":"13:45","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Charging","soc":67,"bessPower":-214,"solarPower":392,"load":178,"remarks":"Grid Unhealthy, Solar feeding Load & Carge Battery as well","_id":"seed_1_2026-08-07_13:45"},{"date":"2026-08-07","time":"14:02","gridStatus":"Available","gridHealthy":"Yes","gridPower":30,"bessMode":"PQ","bessStatus":"Charging","soc":66,"bessPower":-90,"solarPower":231,"load":178,"remarks":"Grid healthy, WAPDA+Solar feeding load, BESS charging from PV","_id":"seed_2_2026-08-07_14:02"},{"_id":"1787817072227_yf4te","date":"2026-08-07","time":"14:05","gridStatus":"Available","gridHealthy":"Yes","gridPower":0,"bessMode":"PQ","bessStatus":"Charging","soc":67,"bessPower":-217,"solarPower":398,"genPower":0,"load":174,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"date":"2026-08-07","time":"18:00","gridStatus":"Available","gridHealthy":"Yes","gridPower":140,"bessMode":"PQ","bessStatus":"Idle","soc":88,"bessPower":1,"solarPower":34,"load":173,"remarks":"Grid healthy, WAPDA+Solar feeding load, BESS is in Idle condition due to low PV","_id":"seed_3_2026-08-07_18:00"},{"date":"2026-08-07","time":"19:20","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":89,"bessPower":165,"solarPower":0,"load":165,"remarks":"Grid Unhealthy, BESS Feeding Load - Discahrging","_id":"seed_4_2026-08-07_19:20"},{"date":"2026-08-07","time":"20:20","gridStatus":"Available","gridHealthy":"Yes","gridPower":155,"bessMode":"PQ","bessStatus":"Idle","soc":58,"bessPower":2,"solarPower":0,"load":158,"remarks":"Grid healthy, WAPDA feeding load, BESS is in Idle condition due to 0 PV","_id":"seed_5_2026-08-07_20:20"},{"date":"2026-08-08","time":"09:45","gridStatus":"Available","gridHealthy":"Yes","gridPower":15,"bessMode":"PQ","bessStatus":"Charging","soc":91,"bessPower":-168,"solarPower":331,"load":178,"remarks":"Grid healthy, WAPDA+Solar feeding load, BESS charging from PV","_id":"seed_6_2026-08-08_09:45"},{"_id":"1787817162618_o7mr3","date":"2026-08-08","time":"10:00","gridStatus":"Available","gridHealthy":"Yes","gridPower":14,"bessMode":"PQ","bessStatus":"Charging","soc":96,"bessPower":-178,"solarPower":352,"genPower":0,"load":155,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"date":"2026-08-08","time":"10:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":7,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":2,"solarPower":175,"load":181,"remarks":"Grid healthy, WAPDA+Solar feeding load, BESS is in idle due to Max SOC","_id":"seed_7_2026-08-08_10:15"},{"date":"2026-08-08","time":"11:35","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":98,"bessPower":48,"solarPower":138,"load":186,"remarks":"Grid unhealthy, BESS+Solar feeding load, BESS is discharging as PV is not enough due to cloudy weather","_id":"seed_8_2026-08-08_11:35"},{"date":"2026-08-08","time":"11:45","gridStatus":"Available","gridHealthy":"Yes","gridPower":45,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":1,"solarPower":139,"load":188,"remarks":"Grid healthy, WAPDA+Solar feeding load, BESS is in idle due to Max SOC","_id":"seed_9_2026-08-08_11:45"},{"date":"2026-08-08","time":"19:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":98,"bessPower":155,"solarPower":0,"load":153,"remarks":"Grid unhealthy, BESS feeding load, BESS is discharging","_id":"seed_10_2026-08-08_19:15"},{"date":"2026-08-08","time":"20:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":147,"bessMode":"PQ","bessStatus":"Idle","soc":70,"bessPower":2.3,"solarPower":0,"load":141,"remarks":"Grid healthy, WAPDA feeding load, BESS is in Idle condition due to 0 PV","_id":"seed_11_2026-08-08_20:15"},{"date":"2026-08-08","time":"22:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":70,"bessPower":142,"solarPower":0,"load":143,"remarks":"Grid unhealthy, BESS feeding load, BESS is discharging","_id":"seed_12_2026-08-08_22:15"},{"date":"2026-08-08","time":"23:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":135,"bessMode":"PQ","bessStatus":"Idle","soc":45,"bessPower":0.8,"solarPower":0,"load":131,"remarks":"Grid healthy, WAPDA feeding load, BESS is in Idle condition due to 0 PV","_id":"seed_13_2026-08-08_23:15"},{"date":"2026-08-09","time":"13:45","gridStatus":"Available","gridHealthy":"Yes","gridPower":7,"bessMode":"PQ","bessStatus":"Charging","soc":86,"bessPower":-331,"solarPower":489,"load":1652,"remarks":"Grid healthy, WAPDA+Solar feeding load, BESS charging from PV","_id":"seed_14_2026-08-09_13:45","genPower":0},{"date":"2026-08-09","time":"17:45","gridStatus":"Available","gridHealthy":"Yes","gridPower":89,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":1,"solarPower":65,"load":155,"remarks":"Grid healthy, WAPDA+Solar feeding load, BESS is in Idle condition due to Max SOC, Weather was cloudy","_id":"seed_15_2026-08-09_17:45"},{"date":"2026-08-09","time":"19:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":97,"bessPower":156,"solarPower":0,"load":158,"remarks":"Grid unhealthy, BESS feeding load, BESS is discharging","_id":"seed_16_2026-08-09_19:15"},{"date":"2026-08-09","time":"20:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":158,"bessMode":"PQ","bessStatus":"Idle","soc":68,"bessPower":3,"solarPower":0,"load":149,"remarks":"Grid healthy, WAPDA feeding load, BESS is in Idle condition due to 0 PV","_id":"seed_17_2026-08-09_20:15"},{"date":"2026-08-09","time":"21:10","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":67,"bessPower":153,"solarPower":0,"load":154,"remarks":"Grid unhealthy, BESS feeding load, BESS is discharging","_id":"seed_18_2026-08-09_21:10"},{"date":"2026-08-09","time":"21:25","gridStatus":"Available","gridHealthy":"Yes","gridPower":157,"bessMode":"PQ","bessStatus":"Idle","soc":59,"bessPower":0.8,"solarPower":0,"load":157,"remarks":"Grid healthy, WAPDA feeding load, BESS is in Idle condition due to 0 PV","_id":"seed_19_2026-08-09_21:25"},{"date":"2026-08-09","time":"22:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":58,"bessPower":152,"solarPower":0,"load":153,"remarks":"Grid unhealthy, BESS feeding load, BESS is discharging","_id":"seed_20_2026-08-09_22:15"},{"date":"2026-08-09","time":"23:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":138,"bessMode":"PQ","bessStatus":"Idle","soc":26,"bessPower":0.8,"solarPower":0,"load":147,"remarks":"Grid healthy, WAPDA feeding load, BESS is in Idle condition due to 0 PV","_id":"seed_21_2026-08-09_23:15"},{"date":"2026-08-10","time":"12:00","gridStatus":"Available","gridHealthy":"Yes","gridPower":21,"bessMode":"PQ","bessStatus":"Charging","soc":35,"bessPower":-185,"solarPower":380,"load":207,"remarks":"Grid healthy, WAPDA+Solar feeding load, BESS charging from PV","_id":"seed_22_2026-08-10_12:00"},{"_id":"1787817330118_1bk9l","date":"2026-08-10","time":"12:05","gridStatus":"Available","gridHealthy":"Yes","gridPower":13,"bessMode":"PQ","bessStatus":"Charging","soc":37,"bessPower":-237,"solarPower":434,"genPower":0,"load":202,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"date":"2026-08-10","time":"14:00","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Charging","soc":97,"bessPower":-36,"solarPower":210,"load":180,"remarks":"Grid unhealthy, Solar feeding load, BESS charging from PV","_id":"seed_23_2026-08-10_14:00"},{"date":"2026-08-10","time":"14:30","gridStatus":"Available","gridHealthy":"Yes","gridPower":4,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":3,"solarPower":175,"load":185,"remarks":"Grid healthy, WAPDA+Solar feeding load, BESS is in idle condition as Max SOC achieved","_id":"seed_24_2026-08-10_14:30"},{"date":"2026-08-10","time":"19:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":97,"bessPower":172,"solarPower":0,"load":176,"remarks":"Grid unhealthy, BESS feeding load, BESS is discharging as PV is unavailable","_id":"seed_25_2026-08-10_19:15"},{"date":"2026-08-10","time":"20:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":166,"bessMode":"PQ","bessStatus":"Idle","soc":67,"bessPower":3,"solarPower":0,"load":167,"remarks":"Grid healthy, WAPDA feeding load, BESS is in idle condition.","_id":"seed_26_2026-08-10_20:15"},{"date":"2026-08-10","time":"22:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":66,"bessPower":184,"solarPower":0,"load":185,"remarks":"Grid unhealthy, BESS feeding load, BESS is discharging as PV is unavailable","_id":"seed_27_2026-08-10_22:15"},{"date":"2026-08-10","time":"23:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":160,"bessMode":"PQ","bessStatus":"Idle","soc":36,"bessPower":0.8,"solarPower":0,"load":160,"remarks":"Grid healthy, WAPDA feeding load, BESS is in idle condition.","_id":"seed_28_2026-08-10_23:15"},{"date":"2026-08-11","time":"09:45","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Charging","soc":45,"bessPower":-168,"solarPower":335,"load":169,"remarks":"Grid Unhealthy, Solar feeding load, BESS is in charging condition.","_id":"seed_29_2026-08-11_09:45"},{"date":"2026-08-11","time":"09:55","gridStatus":"Available","gridHealthy":"Yes","gridPower":15,"bessMode":"PQ","bessStatus":"Charging","soc":50,"bessPower":-177,"solarPower":329,"load":177,"remarks":"Grid healthy, Solar & WAPDA feeding load, BESS is in charging condition.","_id":"seed_30_2026-08-11_09:55"},{"date":"2026-08-11","time":"15:51","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":96,"bessPower":17,"solarPower":176,"load":194,"remarks":"Grid Unhealthy, Solar and BESS feeding load, BESS is in discharging condition due to low pv.","_id":"seed_31_2026-08-11_15:51"},{"date":"2026-08-11","time":"16:20","gridStatus":"Available","gridHealthy":"Yes","gridPower":107,"bessMode":"PQ","bessStatus":"Idle","soc":91,"bessPower":0.8,"solarPower":68,"load":164,"remarks":"Grid healthy, Solar & WAPDA feeding load, BESS is in idle condition due to low pv. ","_id":"seed_32_2026-08-11_16:20"},{"date":"2026-08-11","time":"19:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":90,"bessPower":186,"solarPower":0,"load":186,"remarks":"Grid unhealthy, BESS feeding load, BESS is in discharging condition. ","_id":"seed_33_2026-08-11_19:15"},{"date":"2026-08-11","time":"20:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":170,"bessMode":"PQ","bessStatus":"Idle","soc":59,"bessPower":2,"solarPower":0,"load":165,"remarks":"Grid healthy, WAPDA feeding load, BESS is in idle condition due to 0 pv. ","_id":"seed_34_2026-08-11_20:15"},{"date":"2026-08-11","time":"22:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":59,"bessPower":165,"solarPower":0,"load":167,"remarks":"Grid unhealthy, BESS feeding load, BESS is in discharging condition. ","_id":"seed_35_2026-08-11_22:15"},{"date":"2026-08-11","time":"23:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":161,"bessMode":"PQ","bessStatus":"Idle","soc":29,"bessPower":1.3,"solarPower":0,"load":152,"remarks":"Grid healthy, WAPDA feeding load, BESS is in idle condition due to 0 pv. ","_id":"seed_36_2026-08-11_23:15"},{"_id":"1787817415088_ct14z","date":"2026-08-11","time":"23:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":17,"bessMode":"PQ","bessStatus":"Charging","soc":76,"bessPower":-210,"solarPower":404,"genPower":0,"load":204,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"_id":"1787652430213_gmxon","date":"2026-08-11","time":"23:30","gridStatus":"Available","gridHealthy":"Yes","gridPower":215,"bessMode":"PQ","bessStatus":"Charging","soc":29,"bessPower":-55,"solarPower":0,"load":157,"remarks":"Grid healthy, WAPDA feeding load and charging BESS as night-time setpoint of 215kW is active (23:30–04:30); load deducted from setpoint, remainder charges BESS."},{"_id":"1787652537245_2rg7x","date":"2026-08-12","time":"01:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":47,"bessPower":150,"solarPower":0,"load":150,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787654494919_ubhlv","date":"2026-08-12","time":"02:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":214,"bessMode":"PQ","bessStatus":"Charging","soc":17,"bessPower":-60,"solarPower":0,"load":154,"remarks":"Grid healthy, WAPDA feeding the load, BESS is charging via grid (no PV)."},{"date":"2026-08-12","time":"10:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Charging","soc":62,"bessPower":-134,"solarPower":335,"load":205,"remarks":"Grid Unhealthy, Solar feeding load, BESS is in charging condition by solar.","_id":"seed_37_2026-08-12_10:15"},{"_id":"1787817503721_rkj0q","date":"2026-08-12","time":"11:45","gridStatus":"Available","gridHealthy":"Yes","gridPower":3,"bessMode":"PQ","bessStatus":"Charging","soc":33,"bessPower":-167,"solarPower":391,"genPower":0,"load":217,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"date":"2026-08-12","time":"12:40","gridStatus":"Available","gridHealthy":"Yes","gridPower":11,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":0.9,"solarPower":169,"load":170,"remarks":"Grid healthy, Solar & WAPDA feeding load, BESS is in idle condition due to max SOC.","_id":"seed_38_2026-08-12_12:40"},{"date":"2026-08-12","time":"19:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":98,"bessPower":178,"solarPower":0,"load":177,"remarks":"Grid unhealthy, BESS feeding load, BESS is in discharging condition. ","_id":"seed_39_2026-08-12_19:15"},{"date":"2026-08-12","time":"20:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":175,"bessMode":"PQ","bessStatus":"Idle","soc":67,"bessPower":2,"solarPower":0,"load":171,"remarks":"Grid healthy, WAPDA feeding load, BESS is in idle condition due to 0 pv. ","_id":"seed_40_2026-08-12_20:15"},{"date":"2026-08-12","time":"22:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":66,"bessPower":179,"solarPower":0,"load":175,"remarks":"Grid unhealthy, BESS feeding load, BESS is in discharging condition. ","_id":"seed_41_2026-08-12_22:15"},{"date":"2026-08-12","time":"23:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":165,"bessMode":"PQ","bessStatus":"Idle","soc":34,"bessPower":0.8,"solarPower":0,"load":160,"remarks":"Grid healthy, WAPDA feeding load, BESS is in idle condition due to 0 pv. ","_id":"seed_42_2026-08-12_23:15"},{"_id":"1787654187823_jihhm","date":"2026-08-12","time":"23:30","gridStatus":"Available","gridHealthy":"Yes","gridPower":215,"bessMode":"PQ","bessStatus":"Charging","soc":34,"bessPower":-56,"solarPower":0,"load":159,"remarks":"Grid healthy, WAPDA feeding load and charging BESS as night-time setpoint of 215kW is active (23:30–00:00); load deducted from setpoint, remainder charges BESS."},{"_id":"1787655780756_p8ind","date":"2026-08-13","time":"01:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":47,"bessPower":171,"solarPower":0,"load":171,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787655847709_nt1mk","date":"2026-08-13","time":"02:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":214,"bessMode":"PQ","bessStatus":"Charging","soc":16,"bessPower":-52,"solarPower":0,"load":162,"remarks":"Grid healthy, WAPDA feeding load and charging BESS as night-time setpoint of 215kW is active (00:01–04:30); load deducted from setpoint, remainder charges BESS."},{"date":"2026-08-13","time":"11:00","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Charging","soc":64,"bessPower":-112,"solarPower":319,"load":194,"remarks":"Grid Unhealthy, Solar feeding load, BESS is in charging condition by solar.","_id":"seed_43_2026-08-13_11:00"},{"date":"2026-08-13","time":"12:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":27,"bessMode":"PQ","bessStatus":"Charging","soc":75,"bessPower":-3,"solarPower":174,"load":205,"remarks":"Grid healthy, Solar and WAPDA feeding load, BESS is in charging condition by solar.","_id":"seed_44_2026-08-13_12:15"},{"_id":"1787817604011_wat87","date":"2026-08-13","time":"13:45","gridStatus":"Available","gridHealthy":"Yes","gridPower":13,"bessMode":"PQ","bessStatus":"Charging","soc":94,"bessPower":-188,"solarPower":361,"genPower":0,"load":180,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"date":"2026-08-13","time":"17:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":82,"bessPower":90,"solarPower":95,"load":185,"remarks":"Grid unhealthy, Solar and BESS feeding load, BESS is in discharging condition because of low PV.","_id":"seed_45_2026-08-13_17:15"},{"date":"2026-08-13","time":"17:50","gridStatus":"Available","gridHealthy":"Yes","gridPower":125,"bessMode":"PQ","bessStatus":"Idle","soc":74,"bessPower":0.8,"solarPower":53,"load":179,"remarks":"Grid healthy, Solar and WAPDA feeding load, BESS is in idle condition because of low PV.","_id":"seed_46_2026-08-13_17:50"},{"date":"2026-08-13","time":"19:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":74,"bessPower":163,"solarPower":0,"load":163,"remarks":"Grid unhealthy, BESS feeding load, BESS is in discharging condition. ","_id":"seed_47_2026-08-13_19:15"},{"date":"2026-08-13","time":"20:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":168,"bessMode":"PQ","bessStatus":"Idle","soc":51,"bessPower":0.8,"solarPower":0,"load":164,"remarks":"Grid healthy, WAPDA feeding load, BESS is in idle condition due to 0 pv. ","_id":"seed_48_2026-08-13_20:15"},{"_id":"1787656045812_m58mf","date":"2026-08-13","time":"21:30","gridStatus":"Available","gridHealthy":"Yes","gridPower":214,"bessMode":"PQ","bessStatus":"Charging","soc":67,"bessPower":-54,"solarPower":0,"load":160,"remarks":"Grid healthy, WAPDA feeding the load and charge the BESS, BESS is charging from Grid(no PV)."},{"date":"2026-08-13","time":"22:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":50,"bessPower":167,"solarPower":0,"load":171,"remarks":"Grid unhealthy, BESS feeding load, BESS is in discharging condition and in last 5 min due to min SOC BESS shutdown and Gensets were running ","_id":"seed_49_2026-08-13_22:15"},{"date":"2026-08-13","time":"23:25","gridStatus":"Available","gridHealthy":"Yes","gridPower":173,"bessMode":"PQ","bessStatus":"Idle","soc":19,"bessPower":0.8,"solarPower":0,"load":173,"remarks":"Grid healthy, WAPDA feeding load, BESS is in idle condition due to 0 pv and minimum SOC ","_id":"seed_50_2026-08-13_23:25"},{"_id":"1787658957823_6wobt","date":"2026-08-14","time":"00:01","gridStatus":"Available","gridHealthy":"Yes","gridPower":215,"bessMode":"PQ","bessStatus":"Charging","soc":33,"bessPower":-56,"solarPower":0,"load":160,"remarks":"Grid healthy, WAPDA feeding load and charging BESS as night-time setpoint of 215kW is active (00:01–04:30); load deducted from setpoint, remainder charges BESS."},{"_id":"1787659158164_ra3b7","date":"2026-08-14","time":"02:00","gridStatus":"Available","gridHealthy":"Yes","gridPower":151,"bessMode":"PQ","bessStatus":"Idle","soc":21,"bessPower":0,"solarPower":0,"load":151,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle (no PV)."},{"_id":"1787817763140_k1tgc","date":"2026-08-14","time":"12:10","gridStatus":"Available","gridHealthy":"Yes","gridPower":11,"bessMode":"PQ","bessStatus":"Charging","soc":81,"bessPower":-168,"solarPower":379,"genPower":0,"load":216,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"date":"2026-08-14","time":"14:40","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":90,"bessPower":114,"solarPower":35,"load":149,"remarks":"Grid unhealthy, Solar and BESS feeding load, BESS is in discharging condition due to low pv. ","_id":"seed_51_2026-08-14_14:40"},{"date":"2026-08-14","time":"16:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":16,"bessMode":"PQ","bessStatus":"Charging","soc":66,"bessPower":-13,"solarPower":152,"load":148,"remarks":"Grid healthy, Solar and WAPDA feeding load, BESS is in charging condition. ","_id":"seed_52_2026-08-14_16:15"},{"_id":"1787659298701_nq59s","date":"2026-08-14","time":"21:20","gridStatus":"Available","gridHealthy":"Yes","gridPower":215,"bessMode":"PQ","bessStatus":"Charging","soc":70,"bessPower":-67,"solarPower":0,"load":148,"remarks":"Grid healthy, WAPDA feeding the load & Charge the BESS, BESS is charging from the grid (no PV)."},{"_id":"1787659471435_623yr","date":"2026-08-15","time":"00:20","gridStatus":"Available","gridHealthy":"Yes","gridPower":138,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":0,"solarPower":0,"load":138,"remarks":"Grid healthy, WAPDA feeding load and charging BESS as night-time setpoint of 215kW is active (00:01–04:30); load deducted from setpoint, remainder charges BESS."},{"_id":"1787768031160_gsvgd","date":"2026-08-15","time":"00:30","gridStatus":"Available","gridHealthy":"Yes","gridPower":137,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":0,"solarPower":0,"load":137,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle (no PV)."},{"_id":"1787659535869_457y8","date":"2026-08-15","time":"01:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":98,"bessPower":131,"solarPower":0,"load":131,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787768078625_3lemd","date":"2026-08-15","time":"01:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":98,"bessPower":133,"solarPower":0,"load":133,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787659580206_zx51j","date":"2026-08-15","time":"02:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":215,"bessMode":"PQ","bessStatus":"Charging","soc":71,"bessPower":-83,"solarPower":0,"load":131,"remarks":"Grid healthy, WAPDA feeding load and charging BESS as night-time setpoint of 215kW is active (00:01–04:30); load deducted from setpoint, remainder charges BESS."},{"_id":"1787768169968_9ntck","date":"2026-08-15","time":"02:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":215,"bessMode":"PQ","bessStatus":"Charging","soc":70,"bessPower":88,"solarPower":0,"load":126,"remarks":"Grid healthy, WAPDA feeding the load and charge the BESS, BESS is in Charging Condition (no PV)."},{"_id":"1787659638556_dad87","date":"2026-08-15","time":"04:00","gridStatus":"Available","gridHealthy":"Yes","gridPower":132,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":0,"solarPower":0,"load":132,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle (no PV)."},{"_id":"1787768213111_jvppm","date":"2026-08-15","time":"04:00","gridStatus":"Available","gridHealthy":"Yes","gridPower":132,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":0,"solarPower":0,"load":132,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle (no PV)."},{"_id":"1787659823553_1j5gn","date":"2026-08-15","time":"09:30","gridStatus":"Available","gridHealthy":"Yes","gridPower":215,"bessMode":"PQ","bessStatus":"Charging","soc":71,"bessPower":-47,"solarPower":0,"load":165,"remarks":"Grid healthy, WAPDA feeding the load and charge the bess, BESS is Charging from grid(no PV)."},{"date":"2026-08-15","time":"12:40","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Charging","soc":89,"bessPower":-24,"solarPower":221,"load":192,"remarks":"Grid unhealthy, Solar feeding load, BESS is in charging condition. ","_id":"seed_53_2026-08-15_12:40"},{"date":"2026-08-15","time":"13:45","gridStatus":"Available","gridHealthy":"Yes","gridPower":4,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":1.2,"solarPower":169,"load":175,"remarks":"Grid healthy, Solar and WAPDA feeding load, BESS is in idle condition due to Max SOC. ","_id":"seed_54_2026-08-15_13:45"},{"date":"2026-08-15","time":"15:45","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Charging","soc":96,"bessPower":-3,"solarPower":198,"load":193,"remarks":"Grid unhealthy, Solar feeding load, BESS is in charging condition. ","_id":"seed_55_2026-08-15_15:45"},{"date":"2026-08-15","time":"17:00","gridStatus":"Available","gridHealthy":"Yes","gridPower":69,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":3,"solarPower":93,"load":173,"remarks":"Grid healthy, Solar and WAPDA feeding load, BESS is in idle condition due to Max SOC. ","_id":"seed_56_2026-08-15_17:00"},{"date":"2026-08-15","time":"19:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":90,"bessPower":183,"solarPower":0,"load":181,"remarks":"Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. ","_id":"seed_57_2026-08-15_19:15"},{"date":"2026-08-15","time":"20:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":169,"bessMode":"PQ","bessStatus":"Idle","soc":72,"bessPower":0.9,"solarPower":0,"load":169,"remarks":"Grid healthy, WAPDA feeding load, BESS is in idle condition due to  0 PV.","_id":"seed_58_2026-08-15_20:15"},{"_id":"1787768320687_irh5z","date":"2026-08-15","time":"21:30","gridStatus":"Available","gridHealthy":"Yes","gridPower":215,"bessMode":"PQ","bessStatus":"Charging","soc":72,"bessPower":-56,"solarPower":0,"load":155,"remarks":"Grid healthy, WAPDA feeding load and charging BESS as night-time setpoint of 215kW is active (21:30–00:00); load deducted from setpoint, remainder charges BESS."},{"date":"2026-08-15","time":"22:50","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":71,"bessPower":173,"solarPower":0,"load":174,"remarks":"Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. ","_id":"seed_59_2026-08-15_22:50"},{"date":"2026-08-15","time":"23:00","gridStatus":"Available","gridHealthy":"Yes","gridPower":214,"bessMode":"PQ","bessStatus":"Charging","soc":66,"bessPower":-43,"solarPower":0,"load":170,"remarks":"Grid healthy, WAPDA feeding load and  charge the BESS, BESS is in charging condition due to  0 PV.","_id":"seed_60_2026-08-15_23:00"},{"_id":"1787768579849_pcevc","date":"2026-08-16","time":"01:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":81,"bessPower":167,"solarPower":0,"load":167,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787768681917_8p403","date":"2026-08-16","time":"02:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":215,"bessMode":"PQ","bessStatus":"Charging","soc":52,"bessPower":-49,"solarPower":0,"load":167,"remarks":"Grid healthy, WAPDA feeding load and charging BESS as night-time setpoint of 215kW is active (00:01–04:30); load deducted from setpoint, remainder charges BESS."},{"_id":"1787768863747_rtnkk","date":"2026-08-16","time":"04:30","gridStatus":"Available","gridHealthy":"Yes","gridPower":150,"bessMode":"PQ","bessStatus":"Idle","soc":73,"bessPower":0,"solarPower":0,"load":150,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle (no PV)."},{"_id":"1787817941028_27s4y","date":"2026-08-16","time":"12:40","gridStatus":"Available","gridHealthy":"Yes","gridPower":0.1,"bessMode":"PQ","bessStatus":"Charging","soc":88,"bessPower":-164,"solarPower":379,"genPower":0,"load":209,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"_id":"1787818009086_6kxm9","date":"2026-08-21","time":"13:10","gridStatus":"Available","gridHealthy":"Yes","gridPower":21,"bessMode":"PQ","bessStatus":"Charging","soc":93,"bessPower":-173,"solarPower":360,"genPower":0,"load":201,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"date":"2026-08-21","time":"14:45","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":98,"bessPower":2,"solarPower":179,"load":182,"remarks":"Grid unhealthy, Solar & BESS feeding load, BESS is in disharging condition due to bad weather. ","_id":"seed_61_2026-08-21_14:45"},{"date":"2026-08-21","time":"17:00","gridStatus":"Available","gridHealthy":"Yes","gridPower":110,"bessMode":"PQ","bessStatus":"Idle","soc":89,"bessPower":1.1,"solarPower":61,"load":143,"remarks":"Grid healthy, Solar & WAPDA feeding load, BESS is in idle condition. due to low pv.","_id":"seed_62_2026-08-21_17:00"},{"date":"2026-08-21","time":"17:20","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":88,"bessPower":120,"solarPower":40,"load":159,"remarks":"Grid unhealthy, Solar & BESS feeding load, BESS is in disharging condition due to bad weather. ","_id":"seed_63_2026-08-21_17:20"},{"date":"2026-08-21","time":"17:40","gridStatus":"Available","gridHealthy":"Yes","gridPower":125,"bessMode":"PQ","bessStatus":"Idle","soc":85,"bessPower":0.9,"solarPower":28,"load":165,"remarks":"Grid healthy, Solar & WAPDA feeding load, BESS is in idle condition. ","_id":"seed_64_2026-08-21_17:40"},{"date":"2026-08-21","time":"19:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":84,"bessPower":167,"solarPower":0,"load":170,"remarks":"Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. ","_id":"seed_65_2026-08-21_19:15"},{"date":"2026-08-21","time":"20:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":214,"bessMode":"PQ","bessStatus":"Charging","soc":54,"bessPower":-54,"solarPower":0,"load":154,"remarks":"Grid healthy, WAPDA feeding load and Charge BESS, BESS is in charging condition as Night-time setpoint of 215 kW configured from 8:15 PM to 4:30 AM to charge the BESS from WAPDA at 50–60 kW, keeping it available for backup in case of a WAPDA outage and avoiding DG operation. Load demand will be deducted from the 215 kW setpoint, with the remaining power used for BESS charging. ","_id":"seed_66_2026-08-21_20:15"},{"date":"2026-08-21","time":"22:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":71,"bessPower":177,"solarPower":0,"load":177,"remarks":"Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. ","_id":"seed_67_2026-08-21_22:15"},{"date":"2026-08-21","time":"23:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":216,"bessMode":"PQ","bessStatus":"Charging","soc":42,"bessPower":-57,"solarPower":0,"load":155,"remarks":"Grid healthy, WAPDA feeding load and Charge BESS, BESS is in charging condition as Night-time setpoint of 215 kW configured from 8:15 PM to 4:30 AM to charge the BESS from WAPDA at 50–60 kW, keeping it available for backup in case of a WAPDA outage and avoiding DG operation. Load demand will be deducted from the 215 kW setpoint, with the remaining power used for BESS charging. ","_id":"seed_68_2026-08-21_23:15"},{"_id":"1787662022030_a883d","date":"2026-08-22","time":"01:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":59,"bessPower":168,"solarPower":0,"load":168,"remarks":"Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV."},{"_id":"1787662080362_cw16q","date":"2026-08-22","time":"02:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":212,"bessMode":"PQ","bessStatus":"Charging","soc":29,"bessPower":-50,"solarPower":0,"load":61,"remarks":"Grid healthy, WAPDA feeding load and charging BESS as night-time setpoint of 215kW is active (20:20–04:30); load deducted from setpoint, remainder charges BESS."},{"_id":"1787662233909_5a1b1","date":"2026-08-22","time":"04:30","gridStatus":"Available","gridHealthy":"Yes","gridPower":145,"bessMode":"PQ","bessStatus":"Idle","soc":57,"bessPower":0,"solarPower":0,"load":145,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle (no PV)."},{"date":"2026-08-22","time":"10:30","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Charging","soc":90,"bessPower":-18,"solarPower":139,"load":157,"remarks":"Grid Unhealthy, Solar feeding the Load & Charge the BESS, BESS is in Charging condition.","_id":"seed_69_2026-08-22_10:30"},{"_id":"1787818111697_vq3ug","date":"2026-08-22","time":"10:35","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Charging","soc":90,"bessPower":-169,"solarPower":354,"genPower":0,"load":175,"remarks":"Grid unhealthy, solar feeding load and charging the BESS with the surplus."},{"date":"2026-08-22","time":"12:45","gridStatus":"Available","gridHealthy":"Yes","gridPower":6,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":1.3,"solarPower":138,"load":146,"remarks":"Grid healthy, Solar & WAPDA feeding the load, BESS is in idle condition due to Max SOC","_id":"seed_70_2026-08-22_12:45"},{"date":"2026-08-22","time":"17:45","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":95,"bessPower":154,"solarPower":19,"load":176,"remarks":"Grid Unhealthy, Solar & BESS feeding the load, BESS is in discahrging condition due to low PV.","_id":"seed_71_2026-08-22_17:45"},{"date":"2026-08-22","time":"18:25","gridStatus":"Available","gridHealthy":"Yes","gridPower":171,"bessMode":"PQ","bessStatus":"Idle","soc":80,"bessPower":1.5,"solarPower":6,"load":177,"remarks":"Grid healthy, Solar & WAPDA feeding the load, BESS is in idle condition. ","_id":"seed_72_2026-08-22_18:25"},{"date":"2026-08-22","time":"19:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":78,"bessPower":163,"solarPower":0,"load":157,"remarks":"Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. ","_id":"seed_73_2026-08-22_19:15"},{"date":"2026-08-22","time":"20:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":217,"bessMode":"PQ","bessStatus":"Charging","soc":50,"bessPower":-56,"solarPower":0,"load":161,"remarks":"Grid healthy, WAPDA feeding load and Charge BESS, BESS is in charging condition as Night-time setpoint of 215 kW configured from 8:15 PM to 4:30 AM to charge the BESS from WAPDA at 50–60 kW, keeping it available for backup in case of a WAPDA outage and avoiding DG operation. Load demand will be deducted from the 215 kW setpoint, with the remaining power used for BESS charging. ","_id":"seed_74_2026-08-22_20:15"},{"date":"2026-08-22","time":"22:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":65,"bessPower":171,"solarPower":0,"load":171,"remarks":"Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. ","_id":"seed_75_2026-08-22_22:15"},{"date":"2026-08-22","time":"23:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":216,"bessMode":"PQ","bessStatus":"Charging","soc":36,"bessPower":-56,"solarPower":0,"load":158,"remarks":"Grid healthy, WAPDA feeding load and Charge BESS, BESS is in charging condition as Night-time setpoint of 215 kW configured from 8:15 PM to 4:30 AM to charge the BESS from WAPDA at 50–60 kW, keeping it available for backup in case of a WAPDA outage and avoiding DG operation. Load demand will be deducted from the 215 kW setpoint, with the remaining power used for BESS charging. ","_id":"seed_76_2026-08-22_23:15"},{"_id":"1787769305026_u0j0i","date":"2026-08-23","time":"01:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":54,"bessPower":153,"solarPower":0,"load":153,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787769396438_dm5ik","date":"2026-08-23","time":"02:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":215,"bessMode":"PQ","bessStatus":"Charging","soc":25,"bessPower":-67,"solarPower":0,"load":147,"remarks":"Grid healthy, WAPDA feeding the load and charge the BESS, BESS is in charging condition (no PV)."},{"_id":"1787769451085_xamo9","date":"2026-08-23","time":"04:30","gridStatus":"Available","gridHealthy":"Yes","gridPower":138,"bessMode":"PQ","bessStatus":"Idle","soc":49,"bessPower":0,"solarPower":0,"load":138,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle (no PV)."},{"_id":"1787821543770_amwru","date":"2026-08-23","time":"10:25","gridStatus":"Available","gridHealthy":"Yes","gridPower":22,"bessMode":"PQ","bessStatus":"Charging","soc":78,"bessPower":-67,"solarPower":224,"genPower":0,"load":22,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"date":"2026-08-23","time":"11:25","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Idle","soc":98,"bessPower":1,"solarPower":192,"load":195,"remarks":"Grid unhealthy, Solar feeding load, BESS is in idle condition due to Max SOC.","_id":"seed_77_2026-08-23_11:25"},{"date":"2026-08-23","time":"12:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":4,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":1,"solarPower":187,"load":191,"remarks":"Grid healthy, Solar & WAPDA feeding the load, BESS is in idle condition due to Max SOX","_id":"seed_78_2026-08-23_12:15"},{"date":"2026-08-23","time":"19:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":97,"bessPower":171,"solarPower":0,"load":171,"remarks":"Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. ","_id":"seed_79_2026-08-23_19:15"},{"date":"2026-08-23","time":"20:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":215,"bessMode":"PQ","bessStatus":"Charging","soc":70,"bessPower":-66,"solarPower":0,"load":169,"remarks":"Grid healthy, WAPDA feeding load and Charge BESS, BESS is in charging condition as Night-time setpoint of 215 kW configured from 8:15 PM to 4:30 AM to charge the BESS from WAPDA at 50–60 kW, keeping it available for backup in case of a WAPDA outage and avoiding DG operation. Load demand will be deducted from the 215 kW setpoint, with the remaining power used for BESS charging. ","_id":"seed_80_2026-08-23_20:15"},{"date":"2026-08-23","time":"22:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":86,"bessPower":171,"solarPower":0,"load":171,"remarks":"Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. ","_id":"seed_81_2026-08-23_22:15"},{"date":"2026-08-23","time":"23:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":216,"bessMode":"PQ","bessStatus":"Charging","soc":57,"bessPower":-64,"solarPower":0,"load":159,"remarks":"Grid healthy, WAPDA feeding load and Charge BESS, BESS is in charging condition as Night-time setpoint of 215 kW configured from 8:15 PM to 4:30 AM to charge the BESS from WAPDA at 50–60 kW, keeping it available for backup in case of a WAPDA outage and avoiding DG operation. Load demand will be deducted from the 215 kW setpoint, with the remaining power used for BESS charging. ","_id":"seed_82_2026-08-23_23:15"},{"_id":"1787811188168_x0fch","date":"2026-08-24","time":"01:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":79,"bessPower":169,"solarPower":0,"genPower":0,"load":169,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787811587389_misec","date":"2026-08-24","time":"02:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":215,"bessMode":"PQ","bessStatus":"Charging","soc":26,"bessPower":-74,"solarPower":0,"genPower":0,"load":141,"remarks":"Grid healthy, WAPDA feeding the load and charge the BESS, BESS is in Charging Condition(no PV)."},{"_id":"1787811697595_tlwh9","date":"2026-08-24","time":"04:30","gridStatus":"Available","gridHealthy":"Yes","gridPower":160,"bessMode":"PQ","bessStatus":"Idle","soc":49,"bessPower":0,"solarPower":0,"genPower":0,"load":160,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle (no PV)."},{"_id":"1787825352623_8adxa","date":"2026-08-24","time":"09:45","gridStatus":"Available","gridHealthy":"Yes","gridPower":17,"bessMode":"PQ","bessStatus":"Charging","soc":48,"bessPower":-152,"solarPower":314,"genPower":0,"load":174,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"_id":"1787811853461_7320b","date":"2026-08-24","time":"11:55","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Idle","soc":98,"bessPower":-5,"solarPower":211,"genPower":0,"load":206,"remarks":"Grid unhealthy, solar feeding load and charging the BESS is in Idle condition due to Max SOC."},{"_id":"1787811932788_efa2f","date":"2026-08-24","time":"14:50","gridStatus":"Available","gridHealthy":"Yes","gridPower":9,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":-2,"solarPower":176,"genPower":0,"load":178,"remarks":"Grid healthy, solar and WAPDA sharing the load together. BESS is in Idle Condition due to Max SOC."},{"_id":"1787811973402_rdxsl","date":"2026-08-24","time":"19:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":98,"bessPower":167,"solarPower":0,"genPower":0,"load":167,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787812057794_gv04f","date":"2026-08-24","time":"20:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":153,"bessMode":"PQ","bessStatus":"Idle","soc":68,"bessPower":-2,"solarPower":0,"genPower":0,"load":152,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle (no PV)."},{"_id":"1787812115456_sehh1","date":"2026-08-24","time":"22:00","gridStatus":"Available","gridHealthy":"Yes","gridPower":190,"bessMode":"PQ","bessStatus":"Charging","soc":68,"bessPower":-22,"solarPower":0,"genPower":0,"load":167,"remarks":"Grid healthy, WAPDA feeding load and charging BESS as night-time setpoint of 190kW is active (22:00–00:00); load deducted from setpoint, remainder charges BESS."},{"_id":"1787812155310_iaw87","date":"2026-08-24","time":"22:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":69,"bessPower":170,"solarPower":0,"genPower":0,"load":170,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787812202745_h3bff","date":"2026-08-24","time":"23:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":190,"bessMode":"PQ","bessStatus":"Charging","soc":39,"bessPower":-24,"solarPower":0,"genPower":0,"load":166,"remarks":"Grid healthy, WAPDA feeding load and charging BESS as night-time setpoint of 190kW is active (22:00–00:00); load deducted from setpoint, remainder charges BESS."},{"_id":"1787812264406_lhrsq","date":"2026-08-25","time":"01:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":150,"bessMode":"VSG","bessStatus":"Discharging","soc":59,"bessPower":0,"solarPower":0,"genPower":0,"load":150,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787812356163_a5lah","date":"2026-08-25","time":"02:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":190,"bessMode":"PQ","bessStatus":"Charging","soc":29,"bessPower":-48,"solarPower":0,"genPower":0,"load":143,"remarks":"Grid healthy, WAPDA feeding the load & Charge the BESS, BESS is in Charging Mode (no PV)."},{"_id":"1787812393827_6x78r","date":"2026-08-25","time":"04:30","gridStatus":"Available","gridHealthy":"Yes","gridPower":149,"bessMode":"PQ","bessStatus":"Idle","soc":50,"bessPower":0,"solarPower":0,"genPower":0,"load":149,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle (no PV)."},{"_id":"1787827093271_nv0n6","date":"2026-08-25","time":"11:05","gridStatus":"Available","gridHealthy":"Yes","gridPower":1,"bessMode":"PQ","bessStatus":"Charging","soc":83,"bessPower":-169,"solarPower":386,"genPower":0,"load":209,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"_id":"1787812479526_9nxpw","date":"2026-08-25","time":"11:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Charging","soc":87,"bessPower":-39,"solarPower":225,"genPower":0,"load":191,"remarks":"Grid unhealthy, solar feeding load and charging the BESS with the surplus."},{"_id":"1787812543751_ky7sw","date":"2026-08-25","time":"13:00","gridStatus":"Available","gridHealthy":"Yes","gridPower":5,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":-1,"solarPower":163,"genPower":0,"load":157,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"_id":"1787812595792_txmzs","date":"2026-08-25","time":"19:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":98,"bessPower":166,"solarPower":0,"genPower":0,"load":165,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787812640019_vqylp","date":"2026-08-25","time":"20:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":154,"bessMode":"PQ","bessStatus":"Idle","soc":68,"bessPower":-1,"solarPower":0,"genPower":0,"load":153,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle (no PV)."},{"_id":"1787812679769_yk8oo","date":"2026-08-25","time":"22:00","gridStatus":"Available","gridHealthy":"Yes","gridPower":190,"bessMode":"PQ","bessStatus":"Charging","soc":68,"bessPower":-32,"solarPower":0,"genPower":0,"load":157,"remarks":"Grid healthy, WAPDA feeding load and charging BESS as night-time setpoint of 190kW is active (22:00–00:00); load deducted from setpoint, remainder charges BESS."},{"_id":"1787812718488_muona","date":"2026-08-25","time":"22:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":69,"bessPower":166,"solarPower":0,"genPower":0,"load":166,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787812765820_j8k0d","date":"2026-08-25","time":"23:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":190,"bessMode":"PQ","bessStatus":"Charging","soc":40,"bessPower":-30,"solarPower":0,"genPower":0,"load":159,"remarks":"Grid healthy, WAPDA feeding load and charging BESS as night-time setpoint of 190kW is active (22:00–00:00); load deducted from setpoint, remainder charges BESS."},{"_id":"1787812826184_4h6e3","date":"2026-08-26","time":"01:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":51,"bessPower":157,"solarPower":0,"genPower":0,"load":157,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787812890803_bzj8b","date":"2026-08-26","time":"02:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":190,"bessMode":"PQ","bessStatus":"Charging","soc":20,"bessPower":-40,"solarPower":0,"genPower":0,"load":150,"remarks":"Grid healthy, WAPDA feeding the load and charge the BESS, BESS is in Charging Condition (no PV)."},{"_id":"1787812971071_svnpc","date":"2026-08-26","time":"04:30","gridStatus":"Available","gridHealthy":"Yes","gridPower":145,"bessMode":"PQ","bessStatus":"Idle","soc":38,"bessPower":-1,"solarPower":0,"genPower":0,"load":145,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle (no PV)."},{"_id":"1787827147927_5ecvx","date":"2026-08-26","time":"10:55","gridStatus":"Available","gridHealthy":"Yes","gridPower":15,"bessMode":"PQ","bessStatus":"Charging","soc":96,"bessPower":-194,"solarPower":369,"genPower":0,"load":183,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"_id":"1787813052586_50hrd","date":"2026-08-26","time":"11:05","gridStatus":"Available","gridHealthy":"Yes","gridPower":3,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":-1,"solarPower":195,"genPower":0,"load":194,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"_id":"1787813124804_jo8mm","date":"2026-08-26","time":"22:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":98,"bessPower":179,"solarPower":0,"genPower":0,"load":179,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787813177701_8kc2c","date":"2026-08-26","time":"23:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":159,"bessMode":"PQ","bessStatus":"Idle","soc":70,"bessPower":0,"solarPower":0,"genPower":0,"load":158,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle (no PV)."},{"_id":"1787979362837_6f0k6","date":"2026-08-27","time":"01:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":70,"bessPower":161,"solarPower":0,"genPower":0,"load":161,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787979426688_uy9bu","date":"2026-08-27","time":"02:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":148,"bessMode":"PQ","bessStatus":"Idle","soc":41,"bessPower":0,"solarPower":0,"genPower":0,"load":148,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle — night-time charging manually switched off for this window."},{"_id":"1787979543708_4gaqm","date":"2026-08-27","time":"08:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":15,"bessMode":"PQ","bessStatus":"Charging","soc":41,"bessPower":-10,"solarPower":195,"genPower":0,"load":197,"remarks":"Grid healthy, solar and WAPDA sharing the load together."},{"_id":"1787979618700_s29hv","date":"2026-08-27","time":"11:00","gridStatus":"Available","gridHealthy":"Yes","gridPower":15,"bessMode":"PQ","bessStatus":"Charging","soc":96,"bessPower":-172,"solarPower":370,"genPower":0,"load":207,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"_id":"1787979680279_akwi6","date":"2026-08-27","time":"11:05","gridStatus":"Available","gridHealthy":"Yes","gridPower":1,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":0,"solarPower":198,"genPower":0,"load":196,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"_id":"1787979736837_a867h","date":"2026-08-27","time":"17:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":98,"bessPower":121,"solarPower":39,"genPower":0,"load":161,"remarks":"Grid unhealthy, solar insufficient — solar and BESS together feeding the load."},{"_id":"1787979781722_2ml4e","date":"2026-08-27","time":"17:30","gridStatus":"Available","gridHealthy":"Yes","gridPower":136,"bessMode":"PQ","bessStatus":"Idle","soc":92,"bessPower":1,"solarPower":31,"genPower":0,"load":167,"remarks":"Grid healthy, solar and WAPDA sharing the load together."},{"_id":"1787979822958_9egan","date":"2026-08-27","time":"19:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":91,"bessPower":179,"solarPower":0,"genPower":0,"load":179,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787979869178_0ptja","date":"2026-08-27","time":"20:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":166,"bessMode":"PQ","bessStatus":"Idle","soc":58,"bessPower":2,"solarPower":0,"genPower":0,"load":167,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle — night-time charging manually switched off for this window."},{"_id":"1787979898261_yu3iy","date":"2026-08-27","time":"22:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":58,"bessPower":169,"solarPower":0,"genPower":0,"load":169,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787979934580_5j473","date":"2026-08-27","time":"23:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":153,"bessMode":"PQ","bessStatus":"Idle","soc":28,"bessPower":1,"solarPower":0,"genPower":0,"load":153,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle — night-time charging manually switched off for this window."},{"_id":"1787980049017_6jenk","date":"2026-08-28","time":"01:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":28,"bessPower":157,"solarPower":0,"genPower":0,"load":157,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787980079147_9gymg","date":"2026-08-28","time":"01:30","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":10,"bessPower":0,"solarPower":0,"genPower":156,"load":156,"remarks":"Generator feeding the load because grid is unavailable, PV is 0, and BESS has hit its minimum SOC threshold (~10%); BESS still sharing the load alongside the generator."},{"_id":"1787980114285_ahuw4","date":"2026-08-28","time":"02:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":151,"bessMode":"PQ","bessStatus":"Idle","soc":10,"bessPower":0,"solarPower":0,"genPower":0,"load":151,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle — night-time charging manually switched off for this window."},{"_id":"1787980195473_au37s","date":"2026-08-28","time":"08:55","gridStatus":"Available","gridHealthy":"Yes","gridPower":10,"bessMode":"PQ","bessStatus":"Charging","soc":11,"bessPower":-41,"solarPower":197,"genPower":0,"load":162,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"_id":"1787980241108_2e1vb","date":"2026-08-28","time":"12:00","gridStatus":"Available","gridHealthy":"Yes","gridPower":16,"bessMode":"PQ","bessStatus":"Charging","soc":91,"bessPower":-179,"solarPower":372,"genPower":0,"load":202,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"_id":"1787980303847_xm0to","date":"2026-08-28","time":"12:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":3,"bessMode":"PQ","bessStatus":"Idle","soc":98,"bessPower":0,"solarPower":189,"genPower":0,"load":189,"remarks":"Grid healthy, solar covering load fully with surplus charging the BESS."},{"_id":"1787980380693_i5j3b","date":"2026-08-28","time":"16:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":98,"bessPower":115,"solarPower":67,"genPower":0,"load":184,"remarks":"Grid unhealthy, solar insufficient — solar and BESS together feeding the load."},{"_id":"1787980425104_q8u8z","date":"2026-08-28","time":"16:25","gridStatus":"Available","gridHealthy":"Yes","gridPower":114,"bessMode":"PQ","bessStatus":"Idle","soc":96,"bessPower":2,"solarPower":43,"genPower":0,"load":159,"remarks":"Grid healthy, solar and WAPDA sharing the load together."},{"_id":"1787980492722_53sv7","date":"2026-08-28","time":"22:15","gridStatus":"Not Available","gridHealthy":"No","gridPower":0,"bessMode":"VSG","bessStatus":"Discharging","soc":92,"bessPower":171,"solarPower":0,"genPower":0,"load":171,"remarks":"Grid unhealthy and no solar, BESS discharging to feed the load."},{"_id":"1787980518366_qd3t2","date":"2026-08-28","time":"23:15","gridStatus":"Available","gridHealthy":"Yes","gridPower":162,"bessMode":"PQ","bessStatus":"Idle","soc":0,"bessPower":2,"solarPower":0,"genPower":0,"load":163,"remarks":"Grid healthy, WAPDA feeding the load, BESS idle — night-time charging manually switched off for this window."}];
+const SEED_SCHEDULE = [{"from":"2026-01-01","to":"2026-08-15","start":"23:30","end":"04:30","setpoint":215,"note":"Grid charging window before 15-Aug. Actual site load ran ~150-160kW against a 215kW setpoint; the remainder (215-load) charged the BESS."},{"from":"2026-08-21","to":"2026-08-23","start":"20:20","end":"04:30","setpoint":215,"note":"Window moved earlier (8:20 PM) from 21-Aug. Load deducted from 215kW setpoint; remainder charges BESS from WAPDA."},{"from":"2026-08-24","to":null,"start":"22:00","end":"04:30","setpoint":190,"note":"Current schedule from 24-Aug. Load deducted from 190kW setpoint; remainder charges BESS from WAPDA."}];
+
+const ENTRY_KEY = 'entries';
+const SCHEDULE_KEY = 'schedule';
+const OFF_KEY = 'wapdaOff';       // legacy paired-window key, kept only for one-time migration
+const EVENTS_KEY = 'wapdaEvents'; // new model: standalone OFF and ON events
+const ENTRY_VERSION_KEY = 'entriesSeedVersion';
+
+// Auto-computed "fingerprint" of the embedded seed data (count + latest date).
+// Whenever this HTML file is updated with a fresh SEED_ENTRIES array (new count
+// and/or new latest date), this fingerprint changes automatically. On load, each
+// browser/device compares its cached fingerprint to this one — a mismatch means
+// "the file has newer data than what's cached here", so the cache is refreshed
+// from the new SEED_ENTRIES instead of showing stale, older data. This is what
+// keeps every device in sync after the file itself is updated with new logs.
+const SEED_ENTRIES_VERSION = SEED_ENTRIES.length + '@' + SEED_ENTRIES.reduce((mx,e)=> (e.date>mx?e.date:mx), '');
+
+let ENTRIES = [];
+let SCHEDULE = [];
+let WAPDA_EVENTS = [];
+
+const COLORS = {
+  grid:'#4C8DFF', solar:'#F5B942', chg:'#2FD9A6', dis:'#FB7C8C', load:'#B490FF',
+  signature:'#22D3B4', danger:'#FF5C6C', muted:'#8B9AB3', ok:'#2FD9A6'
+};
+
+// Site-specific constants used across the dashboard's charts and auto-remark logic
+const SOLAR_CAPACITY_KW = 520;   // approx. installed PV plant capacity at Din Farm
+const GEN_SOC_THRESHOLD = 10;    // BESS min-SOC (%) threshold below which the generator is brought in
+
+/* ============================================================
+   STORAGE HELPERS
+   Works two ways: inside Claude's artifact preview it uses the
+   built-in window.storage API; opened as a plain HTML file in any
+   browser (double-click, USB drive, emailed, etc.) it falls back
+   to localStorage, and finally to an in-memory object if even that
+   is blocked (e.g. file:// in some browsers) — so the dashboard
+   and its charts always have data to render.
+   ============================================================ */
+const _memoryFallback = {};
+const DIN_FARM_API_URL = '<?= webAppUrl ?>';
+const DIN_FARM_CLOUD_CHUNK = 1200;
+let DIN_FARM_CLOUD_ONLINE = false;
+
+function cloudJsonp(params) {
+  return new Promise((resolve, reject) => {
+    const cb = '__dinFarmCb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const script = document.createElement('script');
+    const cleanup = () => {
+      try { delete window[cb]; } catch(e) { window[cb] = undefined; }
+      if (script.parentNode) script.parentNode.removeChild(script);
+    };
+    const timer = setTimeout(() => { cleanup(); reject(new Error('Cloud request timed out')); }, 7000);
+    window[cb] = (data) => { clearTimeout(timer); cleanup(); DIN_FARM_CLOUD_ONLINE = true; resolve(data); };
+    const q = new URLSearchParams(params);
+    q.set('callback', cb);
+    script.onerror = () => { clearTimeout(timer); cleanup(); reject(new Error('Cloud request failed')); };
+    script.src = DIN_FARM_API_URL + '?' + q.toString();
+    document.head.appendChild(script);
+  });
+}
+
+async function storageGet(key){
+  try{ const r=await fetch('/api/state/d1/'+encodeURIComponent(key)); const j=await r.json(); if(j.ok && j.value!=null) return j.value; }catch(e){ console.warn('Server read failed:',e); }
+  try{ const raw=localStorage.getItem('bess_dinfarm_'+key); if(raw!=null) return raw; }catch(e){}
+  return (key in _memoryFallback) ? _memoryFallback[key] : null;
+}
+async function storageSet(key,value){
+  try{ const r=await fetch('/api/state/d1/'+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:String(value)})}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'save failed'); }catch(e){ console.error('Server save failed:',e); toast('Save failed — admin access required'); return false; }
+  try{ localStorage.setItem('bess_dinfarm_'+key,value); }catch(e){}
+  _memoryFallback[key]=value; return true;
+}
+async function loadEntries(){
+  const raw = await storageGet(ENTRY_KEY);
+  const cachedVersion = await storageGet(ENTRY_VERSION_KEY);
+  if(raw && cachedVersion === SEED_ENTRIES_VERSION){
+    try{ const parsed = JSON.parse(raw); if(Array.isArray(parsed) && parsed.length) return parsed; }catch(e){}
+  }
+  // If the cloud is reachable, refresh the cloud copy when the embedded seed
+  // has a newer fingerprint. If the cloud is temporarily unavailable, do NOT
+  // block the whole dashboard by attempting dozens of chunk uploads. Use the
+  // embedded seed immediately; the normal save path can sync later.
+  const seedCopy = JSON.parse(JSON.stringify(SEED_ENTRIES));
+  if(DIN_FARM_CLOUD_ONLINE){
+    try{
+      await storageSet(ENTRY_KEY, JSON.stringify(seedCopy));
+      await storageSet(ENTRY_VERSION_KEY, SEED_ENTRIES_VERSION);
+    }catch(e){ console.warn('Seed cloud refresh failed:', e); }
+  } else {
+    try{
+      localStorage.setItem('bess_dinfarm_'+ENTRY_KEY, JSON.stringify(seedCopy));
+      localStorage.setItem('bess_dinfarm_'+ENTRY_VERSION_KEY, SEED_ENTRIES_VERSION);
+    }catch(e){}
+  }
+  return seedCopy;
+}
+async function saveEntries(){
+  ENTRIES.sort((a,b)=>{
+    if(a.date!==b.date) return a.date<b.date?-1:1;
+    return a.time<b.time?-1:(a.time>b.time?1:0);
+  });
+  try{ await storageSet(ENTRY_KEY, JSON.stringify(ENTRIES)); }catch(e){ console.error('save failed', e); }
+}
+async function loadSchedule(){
+  const raw = await storageGet(SCHEDULE_KEY);
+  if(raw){
+    try{ const parsed = JSON.parse(raw); if(Array.isArray(parsed) && parsed.length) return parsed; }catch(e){}
+  }
+  if(DIN_FARM_CLOUD_ONLINE) { try { await storageSet(SCHEDULE_KEY, JSON.stringify(SEED_SCHEDULE)); } catch(e){} }
+  return JSON.parse(JSON.stringify(SEED_SCHEDULE));
+}
+async function saveSchedule(){
+  SCHEDULE.sort((a,b)=> a.from<b.from?-1:1);
+  try{ await storageSet(SCHEDULE_KEY, JSON.stringify(SCHEDULE)); }catch(e){ console.error(e); }
+}
+// New model: standalone OFF and ON events instead of paired start/end windows.
+// Whichever event is most recent as of a given date+time decides whether charging is off.
+async function loadWapdaEvents(){
+  const raw = await storageGet(EVENTS_KEY);
+  if(raw){
+    try{ const parsed = JSON.parse(raw); if(Array.isArray(parsed)) return parsed; }catch(e){}
+  }
+  // one-time migration from the old paired-window format, if present, so existing logged
+  // data isn't lost when this dashboard is opened after the update
+  const legacyRaw = await storageGet(OFF_KEY);
+  if(legacyRaw){
+    try{
+      const legacy = JSON.parse(legacyRaw);
+      if(Array.isArray(legacy) && legacy.length){
+        const migrated = [];
+        legacy.forEach(w=>{
+          migrated.push({_id:'mig_off_'+w._id, type:'off', date:w.startDate, time:w.startTime, note:w.note||''});
+          migrated.push({_id:'mig_on_'+w._id, type:'on', date:w.endDate, time:w.endTime, setpoint:null, note:'Charging resumed (migrated from earlier off/on window)'});
+        });
+        return migrated;
+      }
+    }catch(e){}
+  }
+  return [];
+}
+async function saveWapdaEvents(){
+  WAPDA_EVENTS.sort((a,b)=> dt(a.date,a.time) < dt(b.date,b.time) ? -1 : 1);
+  try{ await storageSet(EVENTS_KEY, JSON.stringify(WAPDA_EVENTS)); }catch(e){ console.error('save failed', e); }
+}
+// Comparable "datetime" string for date+time pairs (YYYY-MM-DD + HH:MM sorts/compares lexicographically)
+function dt(dateStr, timeStr){ return dateStr+' '+timeStr; }
+function nextDateStr(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  d.setDate(d.getDate()+1);
+  return d.toISOString().slice(0,10);
+}
+// finds the most recent OFF/ON event at or before the given date+time
+function latestWapdaEvent(dateStr, timeStr){
+  const point = dt(dateStr, timeStr);
+  let latest = null;
+  for(const ev of WAPDA_EVENTS){
+    const p = dt(ev.date, ev.time);
+    if(p <= point && (!latest || dt(latest.date, latest.time) < p)) latest = ev;
+  }
+  return latest;
+}
+// true if the given date+time falls after a logged OFF event with no later ON event before it
+function isWapdaOff(dateStr, timeStr){
+  const latest = latestWapdaEvent(dateStr, timeStr);
+  return !!(latest && latest.type === 'off');
+}
+// the setpoint actually in effect at a given date+time: an explicit "charging ON" event's
+// setpoint takes priority (it's a manual, dated override), otherwise fall back to whatever
+// the recurring night-charging schedule says for that date
+function activeSetpoint(dateStr, timeStr){
+  const latest = latestWapdaEvent(dateStr, timeStr);
+  if(latest && latest.type==='on' && latest.setpoint){ return Number(latest.setpoint); }
+  const sch = scheduleForDate(dateStr);
+  return sch ? sch.setpoint : null;
+}
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(()=> t.classList.remove('show'), 2200);
+}
+
+/* ============================================================
+   DOMAIN LOGIC
+   ============================================================ */
+function scheduleForDate(dateStr){
+  let match = null;
+  for(const s of SCHEDULE){
+    if(dateStr >= s.from && (!s.to || dateStr <= s.to)) match = s;
+  }
+  if(!match && SCHEDULE.length) match = SCHEDULE[SCHEDULE.length-1];
+  return match;
+}
+function timeInWindow(t, start, end){
+  // handles overnight windows like 22:00-04:30
+  if(start <= end) return t >= start && t <= end;
+  return t >= start || t <= end;
+}
+function isNightChargeWindow(dateStr, timeStr){
+  if(isWapdaOff(dateStr, timeStr)) return false; // manual override: night charging switched off for this window
+  const s = scheduleForDate(dateStr);
+  if(!s) return false;
+  return timeInWindow(timeStr, s.start, s.end);
+}
+
+// classify an entry into the source-of-power logic, mirroring the site's own rules
+function classify(e){
+  const gridUp = e.gridHealthy === 'Yes' || e.gridStatus === 'Available';
+  const solar = Number(e.solarPower)||0;
+  const gen = Number(e.genPower)||0;
+  const load = Number(e.load)||0;
+  const bessPower = Number(e.bessPower)||0;
+  const night = isNightChargeWindow(e.date, e.time);
+  const offOverride = isWapdaOff(e.date, e.time);
+  const charging = e.bessStatus === 'Charging';
+  const discharging = e.bessStatus === 'Discharging';
+
+  if(charging && night && gridUp){
+    const sch = scheduleForDate(e.date);
+    const setpoint = activeSetpoint(e.date, e.time);
+    return {mode:'Night grid charging', source:'Grid',
+      remark:`Grid healthy, WAPDA feeding load and charging BESS as night-time setpoint of ${setpoint!=null?setpoint:''}kW is active (${sch?sch.start:''}–${sch?sch.end:''}); load deducted from setpoint, remainder charges BESS.`};
+  }
+  if(gen>0 && !gridUp && solar>0 && solar<load){
+    const bessNote = discharging ? 'BESS is also assisting marginally as it holds near the minimum SOC limit' : 'BESS is idle, held at its minimum SOC limit';
+    return {mode:'Generator + Solar share the load', source:'Generator+Solar',
+      remark:`Grid unhealthy and PV (${solar}kW) isn't enough for the ${load}kW load due to bad weather; BESS had already hit the minimum SOC threshold (~${GEN_SOC_THRESHOLD}%) so the generator switched in to share the load alongside solar — ${bessNote}.`};
+  }
+  if(gen>0 && !gridUp && solar===0 && discharging){
+    return {mode:'Generator + BESS share the load', source:'Generator+BESS',
+      remark:`Generator feeding the load because grid is unavailable, PV is 0, and BESS has hit its minimum SOC threshold (~${GEN_SOC_THRESHOLD}%); BESS still sharing the load alongside the generator.`};
+  }
+  if(gen>0 && !gridUp && solar===0){
+    return {mode:'Generator feeding the load', source:'Generator',
+      remark:`Generator feeding the load because grid is unavailable, PV is 0, and BESS has hit its minimum SOC threshold (~${GEN_SOC_THRESHOLD}%) so it has stopped discharging.`};
+  }
+  if(!gridUp && solar>0 && !discharging){
+    return {mode:'Grid down, solar covers load + charges BESS', source:'Solar',
+      remark:'Grid unhealthy, solar feeding load and charging the BESS with the surplus.'};
+  }
+  if(gridUp && solar>=load && solar>0){
+    return {mode:'Solar surplus, charging BESS', source:'Solar',
+      remark:'Grid healthy, solar covering load fully with surplus charging the BESS.'};
+  }
+  if(gridUp && solar>0 && solar<load){
+    return {mode:'Solar + Grid share the load', source:'Mixed',
+      remark:'Grid healthy, solar and WAPDA sharing the load together.'};
+  }
+  if(!gridUp && solar===0 && discharging){
+    return {mode:'Grid + solar both down, BESS covers load', source:'BESS',
+      remark:'Grid unhealthy and no solar, BESS discharging to feed the load.'};
+  }
+  if(!gridUp && solar>0 && solar<load && discharging){
+    return {mode:'Low solar, grid down — solar + BESS cover load', source:'Solar+BESS',
+      remark:'Grid unhealthy, solar insufficient — solar and BESS together feeding the load.'};
+  }
+  if(gridUp && solar===0 && offOverride){
+    return {mode:'No solar, grid covers load (night charging off)', source:'Grid',
+      remark:'Grid healthy, WAPDA feeding the load, BESS idle — night-time charging manually switched off for this window.'};
+  }
+  if(gridUp && solar===0){
+    return {mode:'No solar, grid covers load', source:'Grid',
+      remark:'Grid healthy, WAPDA feeding the load, BESS idle (no PV).'};
+  }
+  return {mode:e.bessStatus||'Idle', source: solar>load?'Solar':(gridUp?'Grid':'BESS'), remark:''};
+}
+
+function fmtHrs(h){ return h.toFixed(1)+' h'; }
+
+/* ============================================================
+   AGGREGATION HELPERS
+   ============================================================ */
+function uniqueDatesFrom(rows){ return [...new Set(rows.map(e=>e.date))].sort(); }
+function uniqueDates(){ return [...new Set(ENTRIES.map(e=>e.date))].sort(); }
+function uniqueMonths(){ return [...new Set(ENTRIES.map(e=>e.date.slice(0,7)))].sort(); }
+function uniqueYears(){ return [...new Set(ENTRIES.map(e=>e.date.slice(0,4)))].sort(); }
+
+function entriesForPeriod(period, key){
+  if(period==='all') return ENTRIES;
+  if(period==='day') return ENTRIES.filter(e=>e.date===key);
+  if(period==='month') return ENTRIES.filter(e=>e.date.slice(0,7)===key);
+  if(period==='year') return ENTRIES.filter(e=>e.date.slice(0,4)===key);
+  return ENTRIES;
+}
+
+function avg(arr){ return arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let currentPeriod = 'day';
+let currentKey = null;
+let charts = {};
+
+/* ============================================================
+   RENDER: TABS
+   ============================================================ */
+document.getElementById('tabNav').addEventListener('click', (ev)=>{
+  const btn = ev.target.closest('.tab-btn');
+  if(!btn) return;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+btn.dataset.view).classList.add('active');
+  if(btn.dataset.view==='trends') renderTrends();
+  if(btn.dataset.view==='availgrid'){ renderAvailGrid(); loadSolarTimes(); }
+  if(btn.dataset.view==='outage') renderOutage();
+  if(btn.dataset.view==='schedule') renderSchedule();
+  if(btn.dataset.view==='simulator') initSimDefaults();
+  if(btn.dataset.view==='log') renderLog();
+});
+
+/* ============================================================
+   RENDER: OVERVIEW / PERIOD PICKER
+   ============================================================ */
+document.getElementById('periodSeg').addEventListener('click', (ev)=>{
+  const btn = ev.target.closest('button'); if(!btn) return;
+  document.querySelectorAll('#periodSeg button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentPeriod = btn.dataset.period;
+  populatePeriodPicker();
+  renderOverview();
+});
+document.getElementById('periodPicker').addEventListener('change', (ev)=>{
+  currentKey = ev.target.value;
+  renderOverview();
+});
+
+function populatePeriodPicker(){
+  const sel = document.getElementById('periodPicker');
+  const wrap = document.getElementById('periodPickerWrap');
+  sel.innerHTML = '';
+  if(currentPeriod==='all'){ wrap.style.display='none'; currentKey='all'; return; }
+  wrap.style.display='flex';
+  let opts = [];
+  if(currentPeriod==='day') opts = uniqueDates();
+  if(currentPeriod==='month') opts = uniqueMonths();
+  if(currentPeriod==='year') opts = uniqueYears();
+  opts.slice().reverse().forEach(o=>{
+    const el = document.createElement('option'); el.value=o; el.textContent=o; sel.appendChild(el);
+  });
+  currentKey = opts.length? opts[opts.length-1] : null;
+  sel.value = currentKey;
+}
+
+function renderOverview(){
+  const data = entriesForPeriod(currentPeriod, currentKey);
+  renderKpis(data);
+  renderLoadSolarGridChart(data);
+  renderGridAvailability(data);
+  renderStatusMix(data);
+  renderSOCChart(data);
+  const sub = document.getElementById('ovChartSub');
+  sub.textContent = data.length + ' logged reading(s) — ' + (currentPeriod==='all'?'all time':currentKey);
+}
+
+function renderKpis(data){
+  const row = document.getElementById('kpiRow');
+  if(!data.length){ row.innerHTML = '<div class="empty" style="grid-column:1/-1;">No readings logged for this period yet.</div>'; return; }
+  // Use the exact same period-bounds/availability engine as the pie chart so
+  // the KPI percentage and pie percentage can never disagree.
+  const bounds = periodBounds(currentPeriod, currentKey);
+  const gridHrs = gridHoursForBounds(bounds);
+  const totalHrs = gridHrs.avail + gridHrs.unavail;
+  const availPct = totalHrs ? (gridHrs.avail / totalHrs * 100) : 0;
+  const socVals = data.map(e=>Number(e.soc)).filter(v=>!isNaN(v));
+  const loadVals = data.map(e=>Number(e.load)).filter(v=>!isNaN(v));
+  const solarVals = data.map(e=>Number(e.solarPower)).filter(v=>!isNaN(v));
+  const days = new Set(data.map(e=>e.date)).size;
+
+  const cards = [
+    {label:'Readings logged', val:data.length, accent:COLORS.signature},
+    {label:'Days covered', val:days, accent:COLORS.grid},
+    {label:'Grid availability', val:availPct.toFixed(1)+'%', accent:COLORS.grid},
+    {label:'Min / Max SOC', val:(socVals.length?Math.min(...socVals):0)+' / '+(socVals.length?Math.max(...socVals):0), accent:COLORS.dis},
+    {label:'Avg load', val:avg(loadVals).toFixed(0)+' kW', accent:COLORS.load},
+    {label:'Peak solar', val:(solarVals.length?Math.max(...solarVals):0)+' kW', accent:COLORS.solar},
+  ];
+  row.innerHTML = cards.map(c=>`
+    <div class="kpi" style="--accent:${c.accent}">
+      <div class="label">${c.label}</div>
+      <div class="val">${c.val}</div>
+    </div>`).join('');
+}
+
+function destroyChart(key){ if(charts[key]){ charts[key].destroy(); delete charts[key]; } }
+
+function renderLoadSolarGridChart(data){
+  destroyChart('lsg');
+  const ctx = document.getElementById('chartLoadSolarGrid');
+  const labels = data.map(e=> currentPeriod==='day' ? e.time : e.date+' '+e.time);
+  charts.lsg = new Chart(ctx, {
+    type:'line',
+    data:{ labels, datasets:[
+      {label:'Load', data:data.map(e=>Number(e.load)), borderColor:COLORS.load, backgroundColor:COLORS.load+'22', tension:0.3, pointRadius:2, borderWidth:2},
+      {label:'Solar', data:data.map(e=>Number(e.solarPower)), borderColor:COLORS.solar, backgroundColor:COLORS.solar+'22', tension:0.3, pointRadius:2, borderWidth:2, fill:true},
+      {label:'Grid feed', data:data.map(e=>Number(e.gridPower)), borderColor:COLORS.grid, backgroundColor:COLORS.grid+'15', tension:0.3, pointRadius:2, borderWidth:2},
+      {label:'Generator', data:data.map(e=>Number(e.genPower)||0), borderColor:COLORS.danger, backgroundColor:COLORS.danger+'15', tension:0.3, pointRadius:2, borderWidth:2, borderDash:[4,3]},
+    ]},
+    options:baseLineOpts('kW')
+  });
+}
+
+let solarTimes = {};
+let solarFetchToken = 0;
+
+function periodBounds(period, key){
+  // Availability is calculated only over the actual date coverage represented
+  // by the selected period. This prevents a partial month/year (e.g. Aug 7–26)
+  // from being treated as the full calendar month/year.
+  let dates=[];
+  if(period==='day' && key) dates = uniqueDates().filter(d=>d===key);
+  else if(period==='month' && key) dates = uniqueDates().filter(d=>d.slice(0,7)===key);
+  else if(period==='year' && key) dates = uniqueDates().filter(d=>d.slice(0,4)===key);
+  else dates = uniqueDates();
+  if(!dates.length) return null;
+  const a=new Date(dates[0]+'T00:00:00');
+  const b=new Date(dates[dates.length-1]+'T00:00:00');
+  b.setDate(b.getDate()+1);
+  return {start:a,end:b,label:period==='all'?'all time':key};
+}
+
+function gridHoursForBounds(bounds){
+  if(!bounds) return {avail:0,unavail:0};
+  const start=bounds.start, end=bounds.end;
+  const events=ENTRIES.map(e=>({t:new Date(e.date+'T'+e.time+':00'), up:e.gridStatus==='Available'}))
+    .filter(e=>e.t<end).sort((a,b)=>a.t-b.t);
+  let status='Available';
+  for(const e of events){ if(e.t<=start) status=e.up?'Available':'Not Available'; else break; }
+  let cursor=start, unavailableMs=0;
+  for(const e of events){
+    if(e.t<=start) continue;
+    if(e.t>=end) break;
+    if(status==='Not Available') unavailableMs += e.t-cursor;
+    cursor=e.t; status=e.up?'Available':'Not Available';
+  }
+  if(status==='Not Available') unavailableMs += end-cursor;
+  const totalMs=Math.max(0,end-start);
+  return {avail:Math.max(0,(totalMs-unavailableMs)/3600000),unavail:Math.max(0,unavailableMs/3600000)};
+}
+
+function renderGridAvailability(data){
+  destroyChart('src');
+  const bounds=periodBounds(currentPeriod,currentKey);
+  const hrs=gridHoursForBounds(bounds);
+  const total=hrs.avail+hrs.unavail;
+  const sub=document.getElementById('gridAvailSub');
+  if(sub) sub.textContent=`${currentPeriod==='all'?'All time':currentKey} — ${hrs.avail.toFixed(1)} h available (${total?((hrs.avail/total)*100).toFixed(1):'0.0'}%) / ${hrs.unavail.toFixed(1)} h unavailable (${total?((hrs.unavail/total)*100).toFixed(1):'0.0'}%)`;
+  const av=document.getElementById('gridAvailHours'), un=document.getElementById('gridUnavailHours');
+  if(av) av.textContent=hrs.avail.toFixed(1); if(un) un.textContent=hrs.unavail.toFixed(1);
+  const ctx=document.getElementById('chartGridAvail');
+  charts.src=new Chart(ctx,{type:'doughnut',data:{labels:['Grid available','Grid not available'],datasets:[{data:[hrs.avail,hrs.unavail],backgroundColor:[COLORS.grid,COLORS.danger],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:COLORS.muted,boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:(c)=> c.label+': '+Number(c.raw).toFixed(1)+' h ('+(total?Number(c.raw/total*100).toFixed(1):'0.0')+'%)'}}}}});
+}
+
+async function loadSolarTimes(){
+  const mode=document.getElementById('solarTimingMode')?.value||'auto';
+  const statusEl=document.getElementById('solarTimingStatus');
+  if(mode!=='auto') { if(statusEl) statusEl.textContent='Manual fallback mode — using the daylight start/end fields below.'; return; }
+  const dates=uniqueDates();
+  if(!dates.length) return;
+  const lat=Number(document.getElementById('siteLat')?.value||31.02021);
+  const lon=Number(document.getElementById('siteLon')?.value||73.85333);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)) return;
+  const token=++solarFetchToken;
+  try{
+    const url=`https://api.sunrise-sunset.org/v2?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lon)}&date_start=${dates[0]}&date_end=${dates[dates.length-1]}&tz=Asia/Karachi&time_format=iso8601`;
+    const res=await fetch(url); if(!res.ok) throw new Error('HTTP '+res.status);
+    const json=await res.json();
+    if(token!==solarFetchToken) return;
+    const days=json.days||[];
+    solarTimes={};
+    days.forEach(d=>{ solarTimes[d.date]={sunrise:new Date(d.sunrise),sunset:new Date(d.sunset)}; });
+    if(statusEl) statusEl.innerHTML='Auto sunrise/sunset active. <a href="https://sunrise-sunset.org/api" target="_blank" rel="noopener">Sunrise-Sunset API</a>';
+    renderAvailGrid();
+  }catch(err){
+    if(statusEl) statusEl.textContent='Auto timing unavailable — using manual fallback values.';
+    solarTimes={}; renderAvailGrid();
+  }
+}
+
+function renderStatusMix(data){
+  destroyChart('mix');
+  const counts = {Charging:0, Discharging:0, Idle:0};
+  data.forEach(e=>{ if(counts[e.bessStatus]!==undefined) counts[e.bessStatus]++; });
+  const ctx = document.getElementById('chartStatusMix');
+  charts.mix = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels:Object.keys(counts), datasets:[{data:Object.values(counts), backgroundColor:[COLORS.chg,COLORS.dis,COLORS.muted], borderWidth:0}] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right', labels:{color:COLORS.muted, boxWidth:10, font:{size:11}}}} }
+  });
+}
+
+function renderSOCChart(data){
+  destroyChart('soc');
+  const labels = data.map(e=> currentPeriod==='day' ? e.time : e.date+' '+e.time);
+  const chg = data.map(e=> e.bessStatus==='Charging'? Math.abs(Number(e.bessPower)||0) : null);
+  const dis = data.map(e=> e.bessStatus==='Discharging'? Math.abs(Number(e.bessPower)||0) : null);
+  const ctx = document.getElementById('chartSOC');
+  charts.soc = new Chart(ctx, {
+    data:{ labels, datasets:[
+      {type:'line', label:'SOC %', data:data.map(e=>Number(e.soc)), borderColor:COLORS.signature, backgroundColor:COLORS.signature+'20', yAxisID:'y1', tension:0.3, pointRadius:2, borderWidth:2.5, fill:true, order:0},
+      {type:'bar', label:'Charging kW', data:chg, backgroundColor:COLORS.chg+'99', yAxisID:'y2', order:1},
+      {type:'bar', label:'Discharging kW', data:dis, backgroundColor:COLORS.dis+'99', yAxisID:'y2', order:1},
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false, interaction:{mode:'index', intersect:false},
+      scales:{
+        x:{ticks:{color:COLORS.muted, maxRotation:0, autoSkip:true, font:{size:10}}, grid:{color:'#182236'}},
+        y1:{position:'left', min:0, max:100, ticks:{color:COLORS.signature, font:{size:10}}, grid:{color:'#182236'}, title:{display:true, text:'SOC %', color:COLORS.muted, font:{size:10}}},
+        y2:{position:'right', ticks:{color:COLORS.muted, font:{size:10}}, grid:{display:false}, title:{display:true, text:'kW', color:COLORS.muted, font:{size:10}}}
+      },
+      plugins:{legend:{labels:{color:COLORS.muted, boxWidth:10, font:{size:11}}}}
+    }
+  });
+}
+
+function baseLineOpts(yLabel){
+  return {
+    responsive:true, maintainAspectRatio:false, interaction:{mode:'index', intersect:false},
+    scales:{
+      x:{ticks:{color:COLORS.muted, maxRotation:0, autoSkip:true, font:{size:10}}, grid:{color:'#182236'}},
+      y:{ticks:{color:COLORS.muted, font:{size:10}}, grid:{color:'#182236'}, title:{display:true, text:yLabel, color:COLORS.muted, font:{size:10}}}
+    },
+    plugins:{legend:{labels:{color:COLORS.muted, boxWidth:10, font:{size:11}}}}
+  };
+}
+
+/* ============================================================
+   RENDER: TRENDS
+   ============================================================ */
+function renderTrends(){
+  const months = uniqueMonths();
+
+  // ---- Monthly rollup: Max/Min SOC lines and Min/Max Solar bars instead of misleading averages ----
+  // (an "avg solar" number is meaningless here — solar is ~0 for half of every logged day (night),
+  //  so for "Min Solar" we only look at readings where the panels were actually producing (>0kW);
+  //  otherwise the min would always be 0 from nighttime readings and the bar would never show)
+  const monthAgg = months.map(m=>{
+    const d = entriesForPeriod('month', m);
+    const socVals = d.map(e=>Number(e.soc)).filter(v=>!isNaN(v));
+    const solarValsAll = d.map(e=>Number(e.solarPower)).filter(v=>!isNaN(v));
+    const solarValsProducing = solarValsAll.filter(v=>v>0);
+    return {
+      m, avail: avg(d.map(e=>e.gridStatus==='Available'?100:0)),
+      maxSoc: socVals.length?Math.max(...socVals):null, minSoc: socVals.length?Math.min(...socVals):null,
+      minSolar: solarValsProducing.length?Math.min(...solarValsProducing):null,
+      maxSolar: solarValsAll.length?Math.max(...solarValsAll):null,
+      load: avg(d.map(e=>Number(e.load)))
+    };
+  });
+  destroyChart('monthly');
+  charts.monthly = new Chart(document.getElementById('chartMonthly'), {
+    type:'bar',
+    data:{ labels:monthAgg.map(x=>x.m), datasets:[
+      {type:'line', label:'Max SOC %', data:monthAgg.map(x=>x.maxSoc), borderColor:COLORS.signature, yAxisID:'y1', tension:0.3, borderWidth:2.5, pointRadius:3, order:2},
+      {type:'line', label:'Min SOC %', data:monthAgg.map(x=>x.minSoc), borderColor:COLORS.danger, yAxisID:'y1', tension:0.3, borderWidth:2.5, pointRadius:3, borderDash:[4,3], order:2},
+      {label:'Min Solar kW (when producing)', data:monthAgg.map(x=>x.minSolar), backgroundColor:COLORS.solar+'55', yAxisID:'y2', order:3},
+      {label:'Max Solar kW', data:monthAgg.map(x=>x.maxSolar), backgroundColor:COLORS.solar+'99', yAxisID:'y2', order:3},
+      {label:'Avg Load kW', data:monthAgg.map(x=>x.load.toFixed(1)), backgroundColor:COLORS.load+'99', yAxisID:'y2', order:3},
+      {type:'line', label:'Solar plant capacity (~'+SOLAR_CAPACITY_KW+'kW)', data:monthAgg.map(()=>SOLAR_CAPACITY_KW), borderColor:'#FFFFFF', yAxisID:'y2', borderWidth:2, borderDash:[6,4], pointRadius:0, order:1},
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      scales:{ x:{ticks:{color:COLORS.muted}, grid:{color:'#182236'}},
+        y1:{position:'left', min:0, max:100, ticks:{color:COLORS.signature}, grid:{display:false}},
+        y2:{position:'right', min:0, max:SOLAR_CAPACITY_KW+40, ticks:{color:COLORS.muted}, grid:{display:false}} },
+      plugins:{legend:{labels:{color:COLORS.muted}}} }
+  });
+
+  // ---- Month picker for the per-day charts below ----
+  const sel = document.getElementById('trendsMonthFilter');
+  const prevVal = sel.value;
+  sel.innerHTML = months.slice().reverse().map(m=>`<option value="${m}">${m}</option>`).join('');
+  let selMonth = months.includes(prevVal) ? prevVal : (months.length ? months[months.length-1] : '');
+  sel.value = selMonth;
+
+  renderTrendsDailyCharts(selMonth);
+}
+
+function renderTrendsDailyCharts(month){
+  const dates = month ? uniqueDates().filter(d=>d.slice(0,7)===month) : uniqueDates();
+  const dayAgg = dates.map(d=>{
+    const rows = entriesForPeriod('day', d);
+    const socVals = rows.map(e=>Number(e.soc)).filter(v=>!isNaN(v));
+    return {
+      d, avail: avg(rows.map(e=>e.gridStatus==='Available'?100:0)),
+      maxSoc: socVals.length?Math.max(...socVals):null, minSoc: socVals.length?Math.min(...socVals):null
+    };
+  });
+  const sub = document.getElementById('trendsMonthSub');
+  if(sub) sub.textContent = dayAgg.length ? dayAgg.length+' day(s) in '+month : 'No data for this month yet';
+
+  destroyChart('dailyAvail');
+  charts.dailyAvail = new Chart(document.getElementById('chartDailyAvail'), {
+    type:'bar',
+    data:{ labels:dayAgg.map(x=>x.d.slice(5)), datasets:[{label:'Availability % (of readings)', data:dayAgg.map(x=>x.avail.toFixed(0)), backgroundColor:COLORS.grid+'aa'}] },
+    options:baseLineOpts('%')
+  });
+  destroyChart('dailySOC');
+  charts.dailySOC = new Chart(document.getElementById('chartDailySOC'), {
+    type:'line',
+    data:{ labels:dayAgg.map(x=>x.d.slice(5)), datasets:[
+      {label:'Max SOC %', data:dayAgg.map(x=>x.maxSoc), borderColor:COLORS.signature, backgroundColor:COLORS.signature+'20', fill:false, tension:0.3, pointRadius:3},
+      {label:'Min SOC %', data:dayAgg.map(x=>x.minSoc), borderColor:COLORS.danger, backgroundColor:COLORS.danger+'20', fill:false, tension:0.3, pointRadius:3, borderDash:[4,3]},
+    ]},
+    options:baseLineOpts('%')
+  });
+}
+document.getElementById('trendsMonthFilter').addEventListener('change', (ev)=>{
+  renderTrendsDailyCharts(ev.target.value);
+});
+['daylightStart','daylightEnd'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('change', ()=>renderAvailGrid()); });
+['solarTimingMode','siteLat','siteLon'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('change', ()=>{ renderAvailGrid(); loadSolarTimes(); }); });
+
+/* ============================================================
+   RENDER: AVAILABILITY GRID (signature visual)
+   ============================================================ */
+function enumerateDateRange(first, last){
+  const out = [];
+  let d = new Date(first+'T00:00:00');
+  const end = new Date(last+'T00:00:00');
+  while(d<=end){
+    out.push(d.toISOString().slice(0,10));
+    d.setDate(d.getDate()+1);
+  }
+  return out;
+}
+
+// Default assumption: grid is available (and grid+solar during daylight hours)
+// unless a logged reading says otherwise. Outages are what actually get logged
+// at this site, so gaps in the log mean "nothing changed", not "no data".
+function renderAvailGrid(){
+  const loggedDates = uniqueDates();
+  const table = document.getElementById('availGridTable');
+  if(!loggedDates.length){
+    table.innerHTML = '<tr><td class="empty">No entries logged yet.</td></tr>';
+    document.getElementById('avgHrsAvail').textContent = '–';
+    document.getElementById('avgHrsUnavail').textContent = '–';
+    document.getElementById('longestOutage').textContent = '–';
+    return;
+  }
+  const allDates = enumerateDateRange(loggedDates[0], loggedDates[loggedDates.length-1]);
+  const sorted = ENTRIES.slice().sort((a,b)=>{
+    if(a.date!==b.date) return a.date<b.date?-1:1;
+    return a.time<b.time?-1:(a.time>b.time?1:0);
+  });
+
+  let head = '<tr><th></th>' + Array.from({length:24}, (_,h)=>`<th>${String(h).padStart(2,'0')}</th>`).join('') + '</tr>';
+  let rows = '';
+  let totalAvail=0, totalUnavail=0, dayCount=0, longestOutage=0, run=0, idx=0;
+  let lastStatus = 'Available'; // default state before the very first logged reading
+
+  allDates.forEach(d=>{
+    dayCount++;
+    let cells = '';
+    for(let h=0; h<24; h++){
+      let explicit = false;
+      while(idx<sorted.length && sorted[idx].date===d && parseInt(sorted[idx].time.split(':')[0],10)===h){
+        lastStatus = sorted[idx].gridStatus;
+        explicit = true;
+        idx++;
+      }
+      const mode=document.getElementById('solarTimingMode')?.value||'auto';
+      const manualStart=Number((document.getElementById('daylightStart')?.value||'06:00').split(':')[0])*60+Number((document.getElementById('daylightStart')?.value||'06:00').split(':')[1]);
+      const manualEnd=Number((document.getElementById('daylightEnd')?.value||'18:00').split(':')[0])*60+Number((document.getElementById('daylightEnd')?.value||'18:00').split(':')[1]);
+      const st=solarTimes[d];
+      const daylight=mode==='auto' && st ? (h*60)>= (st.sunrise.getHours()*60+st.sunrise.getMinutes()) && (h*60)<(st.sunset.getHours()*60+st.sunset.getMinutes()) : (h*60)>=manualStart && (h*60)<manualEnd;
+      if(lastStatus==='Not Available'){
+        totalUnavail++; run++; longestOutage=Math.max(longestOutage,run);
+        cells += `<td><div class="hcell unavail" title="${d} ${String(h).padStart(2,'0')}:00 — grid not available${explicit?'':' (carried forward)'}"></div></td>`;
+      } else {
+        run=0; totalAvail++;
+        if(explicit){
+          cells += `<td><div class="hcell avail" title="${d} ${String(h).padStart(2,'0')}:00 — grid available (logged)"></div></td>`;
+        } else if(daylight){
+          cells += `<td><div class="hcell assume-gridsolar" title="${d} ${String(h).padStart(2,'0')}:00 — grid+solar available (no explicit reading)"></div></td>`;
+        } else {
+          cells += `<td><div class="hcell assume-grid" title="${d} ${String(h).padStart(2,'0')}:00 — grid available (no explicit reading)"></div></td>`;
+        }
+      }
+    }
+    rows += `<tr><td class="daylabel">${d}</td>${cells}</tr>`;
+  });
+  table.innerHTML = head + rows;
+
+  document.getElementById('avgHrsAvail').textContent = dayCount? fmtHrs(totalAvail/dayCount) : '–';
+  document.getElementById('avgHrsUnavail').textContent = dayCount? fmtHrs(totalUnavail/dayCount) : '–';
+  document.getElementById('longestOutage').textContent = longestOutage? longestOutage+' h' : '–';
+}
+
+
+/* ============================================================
+   RENDER: NIGHTLY OUTAGE (01:15–02:15)
+   ============================================================ */
+function renderOutage(){
+  // "Night" of date D spans D 19:00 through (D+1) 05:00 — build one row-set per night by stitching
+  // together entries from two calendar dates instead of a single-date time filter.
+  const allDates = uniqueDates();
+  const nights = allDates.map(d=>{
+    const nd = nextDateStr(d);
+    const rows = ENTRIES.filter(e=> (e.date===d && e.time>='19:00') || (e.date===nd && e.time<='05:00'));
+    return { night: d, rows: rows.slice().sort((a,b)=>{
+      // entries on date d (evening) come before entries on date nd (early morning)
+      if(a.date!==b.date) return a.date===d ? -1 : 1;
+      return a.time<b.time?-1:(a.time>b.time?1:0);
+    }) };
+  }).filter(n=>n.rows.length>0);
+
+  const win = nights.flatMap(n=>n.rows);
+
+  destroyChart('outLoad');
+  charts.outLoad = new Chart(document.getElementById('chartOutageLoad'), {
+    type:'bar',
+    data:{ labels:win.map(e=>e.date+' '+e.time), datasets:[{
+      label:'Load (kW)',
+      data:win.map(e=>Number(e.load)),
+      backgroundColor:win.map(e=> e.gridStatus==='Available' ? COLORS.ok+'aa' : COLORS.danger+'aa')
+    }] },
+    options:{
+      ...baseLineOpts('kW'),
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:(c)=>{
+        const e = win[c.dataIndex];
+        return [`Load: ${e.load} kW`, `WAPDA: ${e.gridStatus}`, `BESS: ${e.bessStatus}`];
+      }}}}
+    }
+  });
+
+  // Simple night-time summary: how often WAPDA was down, and what the BESS was doing in each case
+  const gridDown = win.filter(e=>e.gridStatus!=='Available');
+  const gridUpRows = win.filter(e=>e.gridStatus==='Available');
+  const summarize = (rows)=>{
+    if(!rows.length) return '–';
+    const counts = {};
+    rows.forEach(e=>{ counts[e.bessStatus] = (counts[e.bessStatus]||0)+1; });
+    return Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} (${v})`).join(', ');
+  };
+  document.getElementById('outageReadingCount').textContent = win.length;
+  document.getElementById('outageGridDownCount').textContent = gridDown.length;
+  document.getElementById('outageBessDuringOutage').textContent = summarize(gridDown);
+  document.getElementById('outageBessDuringGrid').textContent = summarize(gridUpRows);
+
+  const loads = win.map(e=>Number(e.load)).filter(v=>!isNaN(v));
+  document.getElementById('outageLoadRange').textContent = loads.length? Math.min(...loads)+'–'+Math.max(...loads)+' kW' : '–';
+
+  const thead = document.querySelector('#outageTable thead');
+  const tbody = document.querySelector('#outageTable tbody');
+  thead.innerHTML = '<tr><th>Night of</th><th>Date</th><th>Time</th><th>Grid</th><th>BESS status</th><th>SOC</th><th>BESS kW</th><th>Gen kW</th><th>Load</th><th class="remarks">Remarks</th></tr>';
+  tbody.innerHTML = nights.flatMap(n=> n.rows.map(e=>`<tr>
+    <td>${n.night}</td><td>${e.date}</td><td>${e.time}</td>
+    <td><span class="badge ${e.gridStatus==='Available'?'avail':'unavail'}">${e.gridStatus}</span></td>
+    <td><span class="badge ${badgeClassFor(e.bessStatus)}">${e.bessStatus}</span></td>
+    <td>${e.soc}%</td><td>${e.bessPower}</td><td>${e.genPower||0}</td><td>${e.load}</td>
+    <td class="remarks">${e.remarks||''}</td>
+  </tr>`)).join('') || '<tr><td colspan="10" class="empty">No readings logged in this window yet.</td></tr>';
+}
+
+/* ============================================================
+   RENDER: SCHEDULE
+   ============================================================ */
+let editingSchedId = null;
+
+function schedCardView(s){
+  const ongoing = !s.to;
+  return `<div class="sched-card ${ongoing?'ongoing':'expired'}" data-id="${s._id}">
+      <div>
+        <div class="win">${s.start} → ${s.end}<span class="status-tag">${ongoing?'Active':'Ended'}</span></div>
+        <div class="meta">${s.from}${s.to? ' to '+s.to : ' → ongoing'}${s.note? ' — '+s.note : ''}</div>
+      </div>
+      <div class="right">
+        <div class="setpoint">${s.setpoint} kW<span>setpoint</span></div>
+        <div class="actions">
+          <button class="edit-btn" data-id="${s._id}">Edit</button>
+          <button class="del-btn" data-id="${s._id}">Delete</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function schedCardEdit(s){
+  return `<div class="sched-card editing" data-id="${s._id}">
+    <div class="sched-edit-form">
+      <div class="field"><label>Effective from</label><input type="date" class="cell-input" data-f="from" value="${s.from}"></div>
+      <div class="field"><label>Window start</label><input type="time" class="cell-input" data-f="start" value="${s.start}"></div>
+      <div class="field"><label>Window end</label><input type="time" class="cell-input" data-f="end" value="${s.end}"></div>
+      <div class="field"><label>Setpoint (kW)</label><input type="number" class="cell-input" data-f="setpoint" value="${s.setpoint}"></div>
+      <div class="field"><label>Note</label><input type="text" class="cell-input" data-f="note" value="${(s.note||'').replace(/"/g,'&quot;')}"></div>
+    </div>
+    <div class="sched-edit-actions">
+      <button class="save-edit" data-id="${s._id}">Save</button>
+      <button class="cancel-edit" data-id="${s._id}">Cancel</button>
+    </div>
+  </div>`;
+}
+
+function renderSchedule(){
+  const wrap = document.getElementById('scheduleCards');
+  const sorted = SCHEDULE.slice().sort((a,b)=>a.from<b.from?-1:1);
+  wrap.innerHTML = sorted.map(s => String(s._id)===String(editingSchedId) ? schedCardEdit(s) : schedCardView(s)).join('')
+    || '<div class="empty">No schedule entries yet.</div>';
+
+  wrap.querySelectorAll('.edit-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ editingSchedId = btn.dataset.id; renderSchedule(); });
+  });
+  wrap.querySelectorAll('.cancel-edit').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ editingSchedId = null; renderSchedule(); });
+  });
+  wrap.querySelectorAll('.save-edit').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.dataset.id;
+      const card = wrap.querySelector(`.sched-card[data-id="${id}"]`);
+      const s = SCHEDULE.find(x=>String(x._id)===String(id));
+      if(!s) return;
+      const newFrom = card.querySelector('[data-f="from"]').value;
+      const newStart = card.querySelector('[data-f="start"]').value;
+      const newEnd = card.querySelector('[data-f="end"]').value;
+      const newSetpoint = card.querySelector('[data-f="setpoint"]').value;
+      if(!newFrom || !newStart || !newEnd || !newSetpoint){ toast('Fill date, window and setpoint first'); return; }
+      s.from = newFrom;
+      s.start = newStart;
+      s.end = newEnd;
+      s.setpoint = Number(newSetpoint);
+      s.note = card.querySelector('[data-f="note"]').value || '';
+      await saveSchedule();
+      editingSchedId = null;
+      renderSchedule();
+      toast('Schedule entry updated');
+    });
+  });
+  wrap.querySelectorAll('.del-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.dataset.id;
+      if(String(editingSchedId)===String(id)) editingSchedId = null;
+      SCHEDULE = SCHEDULE.filter(s=>String(s._id)!==String(id));
+      await saveSchedule();
+      renderSchedule();
+      toast('Schedule entry deleted');
+    });
+  });
+
+  renderWapdaEvents();
+
+  const logic = [
+    ['Grid up + no solar','WAPDA feeds the load directly, BESS idle.'],
+    ['Grid up + solar ≥ load','Solar feeds the load fully; surplus solar charges the BESS.'],
+    ['Grid up + solar &lt; load','Solar and WAPDA share the load together.'],
+    ['Grid down + no solar','BESS discharges alone to feed the load.'],
+    ['Grid down + solar ≥ load','Solar feeds the load and charges the BESS with the surplus.'],
+    ['Grid down + solar &lt; load','Solar and BESS share the load together (BESS discharging).'],
+    ['Solar high / SOC low, any grid state','Excess solar routes into BESS charging.'],
+    ['Overnight window (per schedule above)','WAPDA charges the BESS: load is deducted from the setpoint, remainder charges the battery.'],
+    [`Grid down + no solar + BESS at min SOC (~${GEN_SOC_THRESHOLD}%)`,'This is the 4th source: generator feeds the load alone because the grid is unavailable, PV is 0, and the BESS has hit its minimum SOC and stopped discharging.'],
+    [`Grid down + weak solar (bad weather) + BESS at min SOC (~${GEN_SOC_THRESHOLD}%)`,'Generator runs together with solar: PV alone isn\'t enough to cover the load, grid is down, and the BESS is already at its minimum SOC threshold, so the generator makes up the shortfall alongside whatever solar is available.'],
+    ['WAPDA charging OFF event (logged below)','Night-time BESS charging from WAPDA is suspended from that date/time onward, even if the recurring schedule above says it should be active — grid can still feed the load normally. Stays off until a matching "charging ON" event is logged.'],
+  ];
+  document.getElementById('logicList').innerHTML = logic.map((l,i)=>`
+    <div class="logic-item"><div class="n">${i+1}</div><div><b>${l[0]}</b><br>${l[1]}</div></div>`).join('');
+}
+
+document.getElementById('addSchedule').addEventListener('click', async ()=>{
+  const from = document.getElementById('schFrom').value;
+  const start = document.getElementById('schStart').value;
+  const end = document.getElementById('schEnd').value;
+  const setpoint = document.getElementById('schSetpoint').value;
+  const note = document.getElementById('schNote').value;
+  if(!from || !start || !end || !setpoint){ toast('Fill date, window and setpoint first'); return; }
+  // close off the previous open-ended schedule
+  const prevOpen = SCHEDULE.find(s=>!s.to);
+  if(prevOpen){
+    const d = new Date(from); d.setDate(d.getDate()-1);
+    prevOpen.to = d.toISOString().slice(0,10);
+  }
+  SCHEDULE.push({_id: Date.now()+'_'+Math.random().toString(36).slice(2,7), from, to:null, start, end, setpoint:Number(setpoint), note});
+  await saveSchedule();
+  renderSchedule();
+  toast('Schedule change saved');
+  document.getElementById('schFrom').value=''; document.getElementById('schSetpoint').value=''; document.getElementById('schNote').value='';
+});
+
+/* ============================================================
+   WAPDA CHARGING ON/OFF EVENTS (standalone timestamped events, not paired windows)
+   ============================================================ */
+function offEventCardView(ev){
+  return `<div class="sched-card" data-id="${ev._id}" style="border-left-color:var(--danger);">
+      <div>
+        <div class="win" style="color:var(--danger);">OFF — ${ev.date} ${ev.time}</div>
+        <div class="meta">${ev.note? ev.note : 'Night-time WAPDA charging manually switched off from this point'}</div>
+      </div>
+      <div class="right">
+        <div class="actions">
+          <button class="del-btn" data-id="${ev._id}">Delete</button>
+        </div>
+      </div>
+    </div>`;
+}
+function onEventCardView(ev){
+  return `<div class="sched-card" data-id="${ev._id}" style="border-left-color:var(--ok);">
+      <div>
+        <div class="win" style="color:var(--ok);">ON — ${ev.date} ${ev.time}</div>
+        <div class="meta">${ev.note? ev.note : 'Night-time WAPDA charging switched back on from this point'}</div>
+      </div>
+      <div class="right">
+        ${ev.setpoint ? `<div class="setpoint">${ev.setpoint}<span>kW setpoint</span></div>` : ''}
+        <div class="actions">
+          <button class="del-btn" data-id="${ev._id}">Delete</button>
+        </div>
+      </div>
+    </div>`;
+}
+function renderWapdaEvents(){
+  const offWrap = document.getElementById('offEventCards');
+  const onWrap = document.getElementById('onEventCards');
+  if(!offWrap || !onWrap) return;
+  const sorted = WAPDA_EVENTS.slice().sort((a,b)=> dt(a.date,a.time) < dt(b.date,b.time) ? 1 : -1);
+  const offs = sorted.filter(e=>e.type==='off');
+  const ons = sorted.filter(e=>e.type==='on');
+  offWrap.innerHTML = offs.map(offEventCardView).join('') || '<div class="empty">No charging-off events logged — WAPDA night charging follows the schedule above as usual.</div>';
+  onWrap.innerHTML = ons.map(onEventCardView).join('') || '<div class="empty">No charging-on events logged yet.</div>';
+  [offWrap, onWrap].forEach(wrap=>{
+    wrap.querySelectorAll('.del-btn').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const id = btn.dataset.id;
+        WAPDA_EVENTS = WAPDA_EVENTS.filter(ev=>String(ev._id)!==String(id));
+        await saveWapdaEvents();
+        renderWapdaEvents();
+        refreshEverything();
+        toast('Event removed');
+      });
+    });
+  });
+}
+document.getElementById('addOffEvent').addEventListener('click', async ()=>{
+  const date = document.getElementById('offEvDate').value;
+  const time = document.getElementById('offEvTime').value;
+  const note = document.getElementById('offEvNote').value;
+  if(!date || !time){ toast('Fill off date and time first'); return; }
+  WAPDA_EVENTS.push({_id: Date.now()+'_'+Math.random().toString(36).slice(2,7), type:'off', date, time, note});
+  await saveWapdaEvents();
+  renderWapdaEvents();
+  refreshEverything();
+  toast('Charging OFF event saved');
+  document.getElementById('offEvNote').value='';
+});
+document.getElementById('addOnEvent').addEventListener('click', async ()=>{
+  const date = document.getElementById('onEvDate').value;
+  const time = document.getElementById('onEvTime').value;
+  const setpoint = document.getElementById('onEvSetpoint').value;
+  const note = document.getElementById('onEvNote').value;
+  if(!date || !time){ toast('Fill on date and time first'); return; }
+  WAPDA_EVENTS.push({_id: Date.now()+'_'+Math.random().toString(36).slice(2,7), type:'on', date, time, setpoint: setpoint?Number(setpoint):null, note});
+  await saveWapdaEvents();
+  renderWapdaEvents();
+  refreshEverything();
+  toast('Charging ON event saved');
+  document.getElementById('onEvSetpoint').value='';
+  document.getElementById('onEvNote').value='';
+});
+
+/* ============================================================
+   SIMULATOR (24h what-if run)
+   ============================================================ */
+let simInited = false;
+// Multiple WAPDA blackout windows for the simulator, each in HH:MM (minute-precision,
+// can cross midnight e.g. 22:30 -> 00:15). Seeded with the site's usual ~1hr nightly gap.
+let simBlackouts = [
+  {start:'19:15', end:'20:15'},
+  {start:'22:15', end:'23:15'},
+  {start:'01:15', end:'02:15'}
+];
+
+// Multiple load windows. Each window overrides the baseline load and can cross midnight.
+let simLoadWindows = [
+  {start:'19:15', end:'20:15', load:170},
+  {start:'22:15', end:'23:15', load:180},
+  {start:'01:15', end:'02:15', load:200}
+];
+
+function renderLoadWindowRows(){
+  const wrap = document.getElementById('simLoadWindowList');
+  if(!wrap) return;
+  wrap.innerHTML = simLoadWindows.map((w,i)=>`
+    <div class="blackout-row" data-idx="${i}">
+      <input type="time" class="lw-start" value="${w.start}">
+      <span class="arrow">→</span>
+      <input type="time" class="lw-end" value="${w.end}">
+      <input type="number" class="lw-load" value="${w.load}" min="0" step="1" title="Load kW" style="max-width:105px;">
+      <button type="button" class="removeBlackout removeLoadWindow" data-idx="${i}" title="Remove this load window">✕</button>
+    </div>`).join('') || '<p class="hint" style="margin-top:0;">No load windows — baseline load applies all day.</p>';
+
+  wrap.querySelectorAll('.lw-start,.lw-end,.lw-load').forEach(inp=>{
+    inp.addEventListener('change', ev=>{
+      const idx=parseInt(ev.target.closest('.blackout-row').dataset.idx,10);
+      const row=ev.target.closest('.blackout-row');
+      simLoadWindows[idx].start=row.querySelector('.lw-start').value;
+      simLoadWindows[idx].end=row.querySelector('.lw-end').value;
+      simLoadWindows[idx].load=Math.max(0,Number(row.querySelector('.lw-load').value)||0);
+      runSimulation();
+    });
+  });
+  wrap.querySelectorAll('.removeLoadWindow').forEach(btn=>{
+    btn.addEventListener('click',ev=>{
+      const idx=parseInt(ev.target.dataset.idx,10);
+      simLoadWindows.splice(idx,1);
+      renderLoadWindowRows();
+      runSimulation();
+    });
+  });
+}
+
+document.getElementById('addLoadWindow').addEventListener('click',()=>{
+  simLoadWindows.push({start:'12:00',end:'13:00',load:200});
+  renderLoadWindowRows();
+  runSimulation();
+});
+
+function renderBlackoutRows(){
+  const wrap = document.getElementById('simBlackoutList');
+  wrap.innerHTML = simBlackouts.map((w,i)=>`
+    <div class="blackout-row" data-idx="${i}">
+      <input type="time" class="bo-start" value="${w.start}">
+      <span class="arrow">→</span>
+      <input type="time" class="bo-end" value="${w.end}">
+      <button type="button" class="removeBlackout" data-idx="${i}" title="Remove this window">✕</button>
+    </div>`).join('') || '<p class="hint" style="margin-top:0;">No blackout windows — grid stays up all 24h.</p>';
+
+  wrap.querySelectorAll('.bo-start').forEach(inp=>{
+    inp.addEventListener('change', (ev)=>{
+      const idx = parseInt(ev.target.closest('.blackout-row').dataset.idx,10);
+      simBlackouts[idx].start = ev.target.value;
+      runSimulation();
+    });
+  });
+  wrap.querySelectorAll('.bo-end').forEach(inp=>{
+    inp.addEventListener('change', (ev)=>{
+      const idx = parseInt(ev.target.closest('.blackout-row').dataset.idx,10);
+      simBlackouts[idx].end = ev.target.value;
+      runSimulation();
+    });
+  });
+  wrap.querySelectorAll('.removeBlackout').forEach(btn=>{
+    btn.addEventListener('click', (ev)=>{
+      const idx = parseInt(ev.target.dataset.idx,10);
+      simBlackouts.splice(idx,1);
+      renderBlackoutRows();
+      runSimulation();
+    });
+  });
+}
+document.getElementById('addBlackout').addEventListener('click', ()=>{
+  simBlackouts.push({start:'20:00', end:'21:00'});
+  renderBlackoutRows();
+  renderLoadWindowRows();
+  runSimulation();
+});
+
+function initSimDefaults(){
+  if(simInited) return;
+  simInited = true;
+  // seed the night-charge fields from the currently active schedule, if any
+  const today = new Date().toISOString().slice(0,10);
+  const sch = scheduleForDate(today);
+  if(sch){
+    document.getElementById('simNightStart').value = sch.start;
+    document.getElementById('simNightEnd').value = sch.end;
+    document.getElementById('simSetpoint').value = sch.setpoint;
+  }
+  renderBlackoutRows();
+  runSimulation();
+}
+
+function hourInCyclicWindow(h, start, end){
+  // start/end are hour integers 0-23; handles windows that cross midnight
+  if(start===end) return false;
+  if(start<end) return h>=start && h<end;
+  return h>=start || h<end;
+}
+
+// Minute-of-day helpers, used for the (possibly several) HH:MM blackout windows
+function timeToMinutes(t){
+  const parts = String(t||'0:0').split(':');
+  return (parseInt(parts[0],10)||0)*60 + (parseInt(parts[1],10)||0);
+}
+function minuteInCyclicWindow(mins, startMins, endMins){
+  if(startMins===endMins) return false;
+  if(startMins<endMins) return mins>=startMins && mins<endMins;
+  return mins>=startMins || mins<endMins;
+}
+function isBlackoutAt(mins){
+  return simBlackouts.some(w=> minuteInCyclicWindow(mins, timeToMinutes(w.start), timeToMinutes(w.end)));
+}
+
+function loadAtMinute(mins, baseline){
+  // Last-added matching window wins, making it easy to override a baseline/window.
+  let value=baseline;
+  for(const w of simLoadWindows){
+    if(minuteInCyclicWindow(mins, timeToMinutes(w.start), timeToMinutes(w.end))){
+      value=Math.max(0, Number(w.load)||0);
+    }
+  }
+  return value;
+}
+
+// Solar modelled as a smooth (cosine) curve peaking at the midpoint of the
+// daylight window and zero outside it — good enough for a what-if projection.
+function solarAtHour(h, peak, sunrise, sunset){
+  if(sunset<=sunrise || h<sunrise || h>=sunset) return 0;
+  const span = sunset-sunrise;
+  const mid = sunrise + span/2;
+  const frac = 1 - Math.abs(h-mid)/(span/2);
+  return Math.max(0, peak*Math.pow(Math.max(0,frac),1.3));
+}
+
+// Simulation runs at 15-minute resolution internally (so multiple sub-hour
+// blackout windows, e.g. 14:15-15:15, are modelled accurately) and is then
+// rolled up into hourly rows for the chart/table, same as before.
+const SIM_STEP_MIN = 15;
+function runSimulation(){
+  const capacity = Math.max(1, Number(document.getElementById('simCapacity').value)||645);
+  const maxPower = Math.max(0, Number(document.getElementById('simMaxPower').value)||330);
+  const genMaxPower = Math.max(0, Number(document.getElementById('simGenMaxPower').value)||500);
+  const gridMinImport = Math.max(0, Number(document.getElementById('simGridMinImport').value)||10);
+  const gridMaxImport = Math.max(gridMinImport, Number(document.getElementById('simGridMaxImport').value)||15);
+  let soc = Number(document.getElementById('simStartSoc').value); if(isNaN(soc)) soc=98;
+  const minSoc = Number(document.getElementById('simMinSoc').value);
+  const maxSoc = Number(document.getElementById('simMaxSoc').value);
+  const solarPeak = Math.max(0, Number(document.getElementById('simSolarPeak').value)||0);
+  const timeToMin = v => { const m=String(v||'').match(/^(\d{1,2}):(\d{2})$/); return m ? Number(m[1])*60+Number(m[2]) : 0; };
+  const sunrise = timeToMin(document.getElementById('simSunrise').value)/60;
+  const sunset = timeToMin(document.getElementById('simSunset').value)/60;
+  const baselineLoad = Math.max(0, Number(document.getElementById('simLoad').value)||0);
+  const nightStart = timeToMin(document.getElementById('simNightStart').value);
+  const nightEnd = timeToMin(document.getElementById('simNightEnd').value);
+
+  soc = Math.min(maxSoc, Math.max(minSoc, soc));
+  const dt = SIM_STEP_MIN/60;
+  let gridEnergy=0, solarEnergy=0, genEnergy=0, curtailedSolarEnergy=0, minSocSeen=soc;
+  const rows = [];
+  const simStartHour = Math.min(23, Math.max(0, Number(document.getElementById('simStartHour').value)||0));
+
+  // Deterministic 10–15 kW WAPDA minimum variation: avoids fake random noise while
+  // reflecting the requested real-site behavior. The value changes by operating point.
+  const gridMinAtStep = step => {
+    if(gridMaxImport<=gridMinImport) return gridMinImport;
+    const pattern=[0,2,5,1,4,3,5,2,0,4,1,5];
+    return Math.round((gridMinImport + (gridMaxImport-gridMinImport)*(pattern[step%pattern.length]/5))*10)/10;
+  };
+
+  for(let step=0; step<24*60/SIM_STEP_MIN; step++){
+    const simMins = simStartHour*60 + step*SIM_STEP_MIN;
+    const mins = simMins % (24*60);
+    const h = Math.floor(mins/60);
+    const minute = mins%60;
+    const rawSolar = Math.max(0, solarAtHour(mins/60, solarPeak, sunrise, sunset));
+    const gridDown = isBlackoutAt(mins);
+    const gridUp = !gridDown;
+    const night = minuteInCyclicWindow(mins, ((nightStart%(24*60))+(24*60))%(24*60), ((nightEnd%(24*60))+(24*60))%(24*60));
+    const load = loadAtMinute(mins, baselineLoad);
+
+    let solar = 0;
+    let bessPower = 0; // NEGATIVE = charging, POSITIVE = discharging
+    let genPower = 0;
+    let gridPower = 0;
+    let source = 'Grid';
+
+    const roomToFull = Math.max(0,(maxSoc-soc)/100*capacity);
+    const roomToEmpty = Math.max(0,(soc-minSoc)/100*capacity);
+
+    if(gridUp){
+      // WAPDA available: DG is hard OFF.
+      if(night || rawSolar<=0){
+        // At night, WAPDA carries the actual load directly.
+        solar = 0;
+        gridPower = load;
+        source = 'Grid';
+      } else {
+        // Daytime: WAPDA always contributes a varying 10–15 kW minimum.
+        // If solar cannot cover the remainder, grid naturally supplies more.
+        const minGrid = Math.min(gridMinAtStep(step), load);
+        const solarForLoad = Math.max(0, load-minGrid);
+        const solarToLoad = Math.min(rawSolar, solarForLoad);
+        gridPower = Math.max(minGrid, load-solarToLoad);
+        solar = solarToLoad;
+
+        const surplus = Math.max(0, rawSolar-solarToLoad);
+        if(surplus>0 && roomToFull>1e-9){
+          const chargePower = Math.min(surplus, maxPower, roomToFull/dt);
+          if(chargePower>0.001){
+            bessPower=-chargePower;
+            solar += chargePower;
+            source='Solar+Grid+BESS';
+          }
+        }
+        if(!bessPower && rawSolar>solar) {
+          curtailedSolarEnergy += Math.max(0, rawSolar-solar)*dt;
+          source='Solar+Grid (BESS full)';
+        }
+      }
+      genPower=0;
+    } else {
+      // WAPDA unavailable: PV first, BESS second, DG last.
+      if(rawSolar>=load){
+        solar=load;
+        const surplus=Math.max(0, rawSolar-load);
+        if(surplus>0 && roomToFull>1e-9){
+          const chargePower=Math.min(surplus,maxPower,roomToFull/dt);
+          if(chargePower>0.001){
+            bessPower=-chargePower;
+            solar+=chargePower;
+            source='Solar+BESS';
+          }
+        }
+        if(rawSolar>solar) curtailedSolarEnergy += (rawSolar-solar)*dt;
+        if(!bessPower) source='Solar (BESS full)';
+      } else {
+        solar=rawSolar;
+        const deficit=Math.max(0,load-solar);
+
+        // IMPORTANT: if the remaining BESS energy cannot cover this whole
+        // 15-minute interval down to Min SOC, use exactly that remaining
+        // BESS energy and start DG in the SAME interval for the balance.
+        const maxBessDischargeThisStep=Math.min(maxPower, roomToEmpty/dt);
+        // BESS and generator do NOT share the load. If the BESS cannot sustain
+        // the complete 15-minute interval down to Min SOC, it shuts down and
+        // the generator takes the entire remaining deficit for that interval.
+        if(deficit <= maxBessDischargeThisStep + 1e-9 && maxBessDischargeThisStep > 0.001){
+          bessPower=deficit;
+          source=solar>0 ? 'Solar+BESS' : 'BESS';
+        } else {
+          bessPower=0;
+          genPower=Math.min(deficit,genMaxPower);
+          source=solar>0 ? 'Solar+Generator' : 'Generator';
+        }
+      }
+    }
+
+    // Generator only runs when grid is down and BESS cannot cover the deficit.
+    if(gridUp) genPower=0;
+    genPower=Math.min(genPower,genMaxPower,Math.max(0,load-solar-Math.max(0,bessPower)));
+
+    if(bessPower<0) solarEnergy += (-bessPower)*dt;
+    if(genPower>0) genEnergy += genPower*dt;
+    gridEnergy += gridPower*dt;
+
+    soc += (-bessPower*dt/capacity*100);
+    soc=Math.min(maxSoc,Math.max(minSoc,soc));
+    minSocSeen=Math.min(minSocSeen,soc);
+
+    const status=bessPower<-0.001?'Charging':(bessPower>0.001?'Discharging':'Idle');
+    rows.push({
+      hour:h, minute,
+      label:String(h).padStart(2,'0')+':'+String(minute).padStart(2,'0'),
+      solar:Math.round(solar), rawSolar:Math.round(rawSolar),
+      load:Math.round(load), gridUp, partial:false,
+      bessPower:Math.round(bessPower),
+      genPower:Math.round(genPower), gridPower:Math.round(gridPower),
+      chgKwh:Math.round((bessPower<0?-bessPower*dt:0)*100)/100,
+      disKwh:Math.round((bessPower>0?bessPower*dt:0)*100)/100,
+      genKwh:Math.round(genPower*dt*100)/100,
+      soc:Math.round(soc*10)/10, status, source
+    });
+  }
+
+  renderSimChart(rows);
+  renderSimTable(rows);
+  document.getElementById('simMinSocOut').textContent=minSocSeen.toFixed(0)+'%';
+  document.getElementById('simGridEnergy').textContent=gridEnergy.toFixed(0)+' kWh';
+  document.getElementById('simSolarEnergy').textContent=solarEnergy.toFixed(0)+' kWh';
+}
+function renderSimChart(rows){
+  destroyChart('sim');
+  const labels = rows.map(r=>r.label);
+  const chg = rows.map(r=> r.bessPower<0 ? Math.abs(r.bessPower) : null);
+  const dis = rows.map(r=> r.bessPower>0 ? r.bessPower : null);
+  const gen = rows.map(r=> r.genPower>0 ? r.genPower : null);
+  charts.sim = new Chart(document.getElementById('chartSim'), {
+    data:{ labels, datasets:[
+      {type:'line', label:'SOC %', data:rows.map(r=>r.soc), borderColor:COLORS.signature, backgroundColor:COLORS.signature+'20', yAxisID:'y1', tension:0.15, pointRadius:1.5, borderWidth:2.5, fill:true, order:0},
+      {type:'line', label:'Solar kW (actual)', data:rows.map(r=>r.solar), borderColor:COLORS.solar, backgroundColor:COLORS.solar+'22', yAxisID:'y2', tension:0.1, pointRadius:0, borderWidth:2, order:1},
+      {type:'line', label:'Load kW', data:rows.map(r=>r.load), borderColor:COLORS.load, yAxisID:'y2', tension:0, pointRadius:0, borderWidth:2, order:1},
+      {type:'line', label:'Grid kW', data:rows.map(r=>r.gridPower), borderColor:COLORS.grid, yAxisID:'y2', tension:0, pointRadius:0, borderWidth:2, order:1},
+      {type:'line', label:'Generator kW', data:gen, borderColor:COLORS.danger, yAxisID:'y2', tension:0, pointRadius:2, borderWidth:2, borderDash:[5,4], spanGaps:false, order:1},
+      {type:'bar', label:'Charging kW (−)', data:chg, backgroundColor:COLORS.chg+'99', yAxisID:'y2', order:2},
+      {type:'bar', label:'Discharging kW (+)', data:dis, backgroundColor:COLORS.dis+'99', yAxisID:'y2', order:2},
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false, interaction:{mode:'index', intersect:false},
+      scales:{
+        x:{ticks:{color:COLORS.muted, maxRotation:0, autoSkip:true, maxTicksLimit:25, font:{size:10},
+          callback:function(val,idx){
+            const r=rows[idx];
+            if(!r) return labels[idx];
+            if(!r.gridUp) return '⚡'+labels[idx];
+            return labels[idx];
+          }}, grid:{color:'#182236'}},
+        y1:{position:'left', min:0, max:100, ticks:{color:COLORS.signature, font:{size:10}}, grid:{color:'#182236'}, title:{display:true, text:'SOC %', color:COLORS.muted, font:{size:10}}},
+        y2:{position:'right', beginAtZero:true, ticks:{color:COLORS.muted, font:{size:10}}, grid:{display:false}, title:{display:true, text:'kW', color:COLORS.muted, font:{size:10}}}
+      },
+      plugins:{legend:{labels:{color:COLORS.muted, boxWidth:10, font:{size:11}}}}
+    }
+  });
+}
+
+function renderSimTable(rows){
+  const thead = document.querySelector('#simTable thead');
+  const tbody = document.querySelector('#simTable tbody');
+  thead.innerHTML = '<tr><th>Time</th><th>Grid</th><th>Solar kW</th><th>Grid kW</th><th>Load kW</th><th>BESS Status</th><th>BESS kW</th><th>Charge kWh</th><th>Discharge kWh</th><th>Generator kW</th><th>SOC</th><th>Source</th></tr>';
+  tbody.innerHTML = rows.map(r=>{
+    const gridBadge = r.gridUp ? `<span class="badge avail">Up</span>` : `<span class="badge unavail">Down</span>`;
+    return `<tr>
+      <td>${r.label}</td>
+      <td>${gridBadge}</td>
+      <td>${r.solar}</td><td>${r.gridPower}</td><td>${r.load}</td>
+      <td><span class="badge ${badgeClassFor(r.status)}">${r.status}</span></td>
+      <td>${r.bessPower>0?'+':''}${r.bessPower}</td>
+      <td>${r.chgKwh.toFixed(2)}</td><td>${r.disKwh.toFixed(2)}</td>
+      <td>${r.genPower}</td><td>${r.soc}%</td><td>${r.source}</td>
+    </tr>`;
+  }).join('');
+}
+
+document.getElementById('runSim').addEventListener('click', runSimulation);
+
+/* ============================================================
+   RENDER: LOG & ENTRY
+   ============================================================ */
+function badgeClassFor(status){
+  if(status==='Charging') return 'chg';
+  if(status==='Discharging') return 'dis';
+  return 'idle';
+}
+
+function populateLogFilters(){
+  const sel = document.getElementById('logDateFilter');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All dates</option>' + uniqueDates().slice().reverse().map(d=>`<option value="${d}">${d}</option>`).join('');
+  sel.value = cur;
+}
+
+let editingLogId = null;
+
+function logRowView(e){
+  return `<tr data-id="${e._id}">
+    <td>${e.date}</td><td>${e.time}</td>
+    <td><span class="badge ${e.gridStatus==='Available'?'avail':'unavail'}">${e.gridStatus==='Available'?'Up':'Down'}</span></td>
+    <td>${e.gridHealthy}</td><td>${e.gridPower}</td><td>${e.bessMode}</td>
+    <td><span class="badge ${badgeClassFor(e.bessStatus)}">${e.bessStatus}</span></td>
+    <td>${e.soc}%</td><td>${e.bessPower}</td><td>${e.solarPower}</td><td>${e.genPower||0}</td><td>${e.load}</td>
+    <td class="remarks">${e.remarks||''}</td>
+    <td><div class="row-actions">
+      <button class="row-edit" data-id="${e._id}" title="Edit row">Edit</button>
+      <button class="row-del" data-id="${e._id}" title="Delete row">✕</button>
+    </div></td>
+  </tr>`;
+}
+
+function logRowEdit(e){
+  const yesNo = v => ['Yes','No'].map(o=>`<option ${v===o?'selected':''}>${o}</option>`).join('');
+  const gridOpt = v => ['Available','Not Available'].map(o=>`<option ${v===o?'selected':''}>${o}</option>`).join('');
+  const modeOpt = v => ['PQ','VSG'].map(o=>`<option ${v===o?'selected':''}>${o}</option>`).join('');
+  const bessOpt = v => ['Charging','Discharging','Idle'].map(o=>`<option ${v===o?'selected':''}>${o}</option>`).join('');
+  return `<tr data-id="${e._id}" class="editing-row">
+    <td><input type="date" class="cell-input" data-f="date" value="${e.date}"></td>
+    <td><input type="time" class="cell-input" data-f="time" value="${e.time}"></td>
+    <td><select class="cell-input" data-f="gridStatus">${gridOpt(e.gridStatus)}</select></td>
+    <td><select class="cell-input" data-f="gridHealthy">${yesNo(e.gridHealthy)}</select></td>
+    <td><input type="number" class="cell-input" data-f="gridPower" value="${e.gridPower}"></td>
+    <td><select class="cell-input" data-f="bessMode">${modeOpt(e.bessMode)}</select></td>
+    <td><select class="cell-input" data-f="bessStatus">${bessOpt(e.bessStatus)}</select></td>
+    <td><input type="number" class="cell-input" data-f="soc" value="${e.soc}"></td>
+    <td><input type="number" class="cell-input" data-f="bessPower" value="${e.bessPower}"></td>
+    <td><input type="number" class="cell-input" data-f="solarPower" value="${e.solarPower}"></td>
+    <td><input type="number" class="cell-input" data-f="genPower" value="${e.genPower||0}"></td>
+    <td><input type="number" class="cell-input" data-f="load" value="${e.load}"></td>
+    <td class="remarks"><input type="text" class="cell-input" data-f="remarks" value="${(e.remarks||'').replace(/"/g,'&quot;')}"></td>
+    <td><div class="row-actions">
+      <button class="save-edit" data-id="${e._id}">Save</button>
+      <button class="cancel-edit" data-id="${e._id}">Cancel</button>
+    </div></td>
+  </tr>`;
+}
+
+function renderLog(){
+  populateLogFilters();
+  const dateF = document.getElementById('logDateFilter').value;
+  const gridF = document.getElementById('logGridFilter').value;
+  const bessF = document.getElementById('logBessFilter').value;
+  let rows = ENTRIES.slice().sort((a,b)=>{
+    if(a.date!==b.date) return a.date>b.date?-1:1;
+    return a.time>b.time?-1:1;
+  });
+  if(dateF) rows = rows.filter(e=>e.date===dateF);
+  if(gridF) rows = rows.filter(e=>e.gridStatus===gridF);
+  if(bessF) rows = rows.filter(e=>e.bessStatus===bessF);
+
+  document.getElementById('logCount').textContent = ENTRIES.length + ' total readings across ' + uniqueDates().length + ' day(s)';
+
+  const thead = document.querySelector('#logTable thead');
+  const tbody = document.querySelector('#logTable tbody');
+  thead.innerHTML = '<tr><th>Date</th><th>Time</th><th>Grid</th><th>Healthy</th><th>Grid kW</th><th>Mode</th><th>BESS</th><th>SOC</th><th>BESS kW</th><th>Solar kW</th><th>Gen kW</th><th>Load kW</th><th class="remarks">Remarks</th><th></th></tr>';
+  tbody.innerHTML = rows.map(e => String(e._id)===String(editingLogId) ? logRowEdit(e) : logRowView(e)).join('')
+    || '<tr><td colspan="14" class="empty">No entries match this filter.</td></tr>';
+
+  tbody.querySelectorAll('.row-edit').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ editingLogId = btn.dataset.id; renderLog(); });
+  });
+  tbody.querySelectorAll('.cancel-edit').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ editingLogId = null; renderLog(); });
+  });
+  tbody.querySelectorAll('.save-edit').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.dataset.id;
+      const tr = tbody.querySelector(`tr[data-id="${id}"]`);
+      const entry = ENTRIES.find(e=>String(e._id)===String(id));
+      if(!entry) return;
+      const newDate = tr.querySelector('[data-f="date"]').value;
+      const newTime = tr.querySelector('[data-f="time"]').value;
+      if(!newDate || !newTime){ toast('Date and time are required'); return; }
+      entry.date = newDate;
+      entry.time = newTime;
+      entry.gridStatus = tr.querySelector('[data-f="gridStatus"]').value;
+      entry.gridHealthy = tr.querySelector('[data-f="gridHealthy"]').value;
+      entry.gridPower = Number(tr.querySelector('[data-f="gridPower"]').value)||0;
+      entry.bessMode = tr.querySelector('[data-f="bessMode"]').value;
+      entry.bessStatus = tr.querySelector('[data-f="bessStatus"]').value;
+      entry.soc = Number(tr.querySelector('[data-f="soc"]').value)||0;
+      entry.bessPower = Number(tr.querySelector('[data-f="bessPower"]').value)||0;
+      entry.solarPower = Number(tr.querySelector('[data-f="solarPower"]').value)||0;
+      entry.genPower = Number(tr.querySelector('[data-f="genPower"]').value)||0;
+      entry.load = Number(tr.querySelector('[data-f="load"]').value)||0;
+      entry.remarks = tr.querySelector('[data-f="remarks"]').value || '';
+      await saveEntries();
+      editingLogId = null;
+      renderLog();
+      refreshEverything();
+      toast('Entry updated');
+    });
+  });
+  tbody.querySelectorAll('.row-del').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.dataset.id;
+      if(String(editingLogId)===String(id)) editingLogId = null;
+      ENTRIES = ENTRIES.filter(e=>String(e._id)!==String(id));
+      await saveEntries();
+      renderLog();
+      refreshEverything();
+      toast('Entry deleted');
+    });
+  });
+}
+['logDateFilter','logGridFilter','logBessFilter'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', renderLog);
+});
+
+// live remark suggestion as the form fields change
+function updateSuggestion(){
+  const draft = {
+    date: document.getElementById('fDate').value || new Date().toISOString().slice(0,10),
+    time: document.getElementById('fTime').value || '12:00',
+    gridStatus: document.getElementById('fGridStatus').value,
+    gridHealthy: document.getElementById('fGridHealthy').value,
+    solarPower: document.getElementById('fSolar').value,
+    genPower: document.getElementById('fGenerator').value,
+    load: document.getElementById('fLoad').value,
+    bessStatus: document.getElementById('fBessStatus').value,
+    bessPower: document.getElementById('fBessPower').value,
+  };
+  const box = document.getElementById('suggestBox');
+  if(draft.solarPower==='' && draft.load===''){ box.classList.remove('show'); return; }
+  const c = classify(draft);
+  box.innerHTML = `<b>${c.mode}</b> — likely source: <b>${c.source}</b><br>${c.remark || 'No strong pattern match — write the remark manually.'}`;
+  box.classList.add('show');
+  const remarksField = document.getElementById('fRemarks');
+  if(!remarksField.dataset.touched && c.remark) remarksField.value = c.remark;
+}
+['fDate','fTime','fGridStatus','fGridHealthy','fSolar','fGenerator','fLoad','fBessStatus','fBessPower'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', updateSuggestion);
+  document.getElementById(id).addEventListener('change', updateSuggestion);
+});
+document.getElementById('fRemarks').addEventListener('input', (e)=>{ e.target.dataset.touched='1'; });
+
+document.getElementById('addEntry').addEventListener('click', async ()=>{
+  const date = document.getElementById('fDate').value;
+  const time = document.getElementById('fTime').value;
+  if(!date || !time){ toast('Date and time are required'); return; }
+  const entry = {
+    _id: Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    date, time,
+    gridStatus: document.getElementById('fGridStatus').value,
+    gridHealthy: document.getElementById('fGridHealthy').value,
+    gridPower: Number(document.getElementById('fGridPower').value)||0,
+    bessMode: document.getElementById('fBessMode').value,
+    bessStatus: document.getElementById('fBessStatus').value,
+    soc: Number(document.getElementById('fSOC').value)||0,
+    bessPower: Number(document.getElementById('fBessPower').value)||0,
+    solarPower: Number(document.getElementById('fSolar').value)||0,
+    genPower: Number(document.getElementById('fGenerator').value)||0,
+    load: Number(document.getElementById('fLoad').value)||0,
+    remarks: document.getElementById('fRemarks').value || classify({date,time,gridStatus:document.getElementById('fGridStatus').value,gridHealthy:document.getElementById('fGridHealthy').value,solarPower:document.getElementById('fSolar').value,genPower:document.getElementById('fGenerator').value,load:document.getElementById('fLoad').value,bessStatus:document.getElementById('fBessStatus').value,bessPower:document.getElementById('fBessPower').value}).remark
+  };
+  ENTRIES.push(entry);
+  await saveEntries();
+  toast('Entry saved — dashboard updated');
+  ['fGridPower','fSOC','fBessPower','fSolar','fGenerator','fLoad','fRemarks'].forEach(id=>{ document.getElementById(id).value=''; });
+  document.getElementById('fRemarks').dataset.touched='';
+  document.getElementById('suggestBox').classList.remove('show');
+  renderLog();
+  refreshEverything();
+});
+
+document.getElementById('exportCsv').addEventListener('click', ()=>{
+  const cols = ['date','time','gridStatus','gridHealthy','gridPower','bessMode','bessStatus','soc','bessPower','solarPower','genPower','load','remarks'];
+  const lines = [cols.join(',')].concat(ENTRIES.map(e=> cols.map(c=> '"'+String(e[c]??'').replace(/"/g,'""')+'"').join(',')));
+  downloadFile('BESS_Din_Farm_export.csv', lines.join('\n'), 'text/csv');
+});
+document.getElementById('exportJson').addEventListener('click', ()=>{
+  downloadFile('BESS_Din_Farm_export.json', JSON.stringify(ENTRIES, null, 2), 'application/json');
+});
+function downloadFile(name, content, type){
+  const blob = new Blob([content], {type});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=name; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ============================================================
+   GLOBAL REFRESH
+   ============================================================ */
+function refreshEverything(){
+  populatePeriodPicker();
+  renderOverview();
+  const activeView = document.querySelector('.tab-btn.active').dataset.view;
+  if(activeView==='trends') renderTrends();
+  if(activeView==='availgrid') renderAvailGrid();
+  if(activeView==='outage') renderOutage();
+  if(activeView==='schedule') renderSchedule();
+  if(activeView==='simulator' && simInited) runSimulation();
+  updateDataRangeChip();
+}
+
+function updateDataRangeChip(){
+  const dates = uniqueDates();
+  const chip = document.getElementById('dataRangeChip');
+  if(!dates.length){ chip.textContent = 'No data yet'; return; }
+  chip.textContent = dates[0] + '  →  ' + dates[dates.length-1] + '  ·  ' + ENTRIES.length + ' readings';
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+async function init(){
+  ENTRIES = await loadEntries();
+  // ensure every seed row has an id (for delete support) without re-shuffling on repeat loads
+  let mutated = false;
+  ENTRIES.forEach((e,i)=>{ if(!e._id){ e._id = 'seed_'+i+'_'+e.date+'_'+e.time; mutated=true; } });
+  if(mutated) await saveEntries();
+
+  SCHEDULE = await loadSchedule();
+  let schedMutated = false;
+  SCHEDULE.forEach((s,i)=>{ if(!s._id){ s._id = 'seed_s_'+i+'_'+s.from+'_'+s.start; schedMutated=true; } });
+  if(schedMutated) await saveSchedule();
+
+  WAPDA_EVENTS = await loadWapdaEvents();
+  let evMutated = false;
+  WAPDA_EVENTS.forEach((ev,i)=>{ if(!ev._id){ ev._id = 'seed_e_'+i+'_'+ev.date+'_'+ev.time; evMutated=true; } });
+  if(evMutated) await saveWapdaEvents();
+
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('fDate').value = today;
+  document.getElementById('schFrom').value = today;
+  document.getElementById('offEvDate').value = today;
+  document.getElementById('onEvDate').value = today;
+
+  populatePeriodPicker();
+  renderOverview();
+  updateDataRangeChip();
+}
+
+// Chart.js loads from a CDN with fallbacks (see <head>); wait for it (or the
+// fallback-failure flag) before drawing any charts, instead of crashing with
+// "Chart is not defined" if the first CDN attempt hasn't resolved yet.
+function waitForChartThenInit(attemptsLeft){
+  if (typeof Chart !== 'undefined') { init(); return; }
+  if (window.__chartLoadFailed || attemptsLeft <= 0) {
+    document.querySelectorAll('.chart-wrap').forEach(el=>{
+      el.innerHTML = '<div class="empty" style="padding:24px;">Charts library failed to load from all available sources — check your internet connection and reload. The rest of the dashboard (data log, entry form, availability grid) still works.</div>';
+    });
+    // Stub out Chart so every "new Chart(...)" call in the render functions
+    // below becomes a harmless no-op instead of throwing "Chart is not defined".
+    window.Chart = function(){ return { destroy(){}, update(){} }; };
+    init();
+    return;
+  }
+  setTimeout(()=> waitForChartThenInit(attemptsLeft-1), 150);
+}
+waitForChartThenInit(40); // retries for up to ~6s while fallback CDNs load
+</script>
+<script>
+(async()=>{try{const r=await fetch('/api/me');const m=await r.json();if(!m.ok){location.href='/login';return;}
+const admin=m.role==='admin';
+const tab=[...document.querySelectorAll('#tabNav .tab-btn')].find(x=>x.dataset.view==='log'); if(!admin&&tab) tab.style.display='none';
+if(!admin){document.querySelectorAll('#view-schedule .entry-form,#addSchedule,#addOffEvent,#addOnEvent,#view-log .entry-form,#addEntry,#exportCsv,#exportJson,.row-edit,.row-del,.edit-btn,.del-btn').forEach(x=>x.style.display='none');}
+const chip=document.getElementById('dataRangeChip'); if(chip) chip.title='Signed in as '+m.user+' ('+m.role+')';
+}catch(e){location.href='/login';}})();
+</script>
+</body>
+</html>

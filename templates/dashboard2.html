@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Din Farm BESS — Control Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0e13;
+    --panel:#10161c;
+    --panel-2:#141b22;
+    --border:#212b34;
+    --border-soft:#1a232b;
+    --text:#dbe4ea;
+    --text-dim:#7c8894;
+    --text-faint:#4d5862;
+    --cyan:#4fc3d9;
+    --green:#34d399;
+    --gold:#f0a83c;
+    --load:#c9d4dc;
+    --red:#f0554c;
+    --amber:#f5c518;
+    --phase-r:#f0554c;
+    --phase-y:#f5c518;
+    --phase-b:#4f8ff0;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 500px at 15% -10%, #0e1620 0%, transparent 60%),
+      radial-gradient(1000px 400px at 100% 0%, #0d1a17 0%, transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding:22px 22px 60px;
+  }
+  ::selection{background:#2a5f6b;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  a{color:var(--cyan);}
+
+  .topbar{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    flex-wrap:wrap;gap:14px;border-bottom:1px solid var(--border);
+    padding-bottom:16px;margin-bottom:18px;
+  }
+  .brand-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.18em;color:var(--text-faint);text-transform:uppercase;margin-bottom:6px;}
+  .brand-title{font-size:26px;font-weight:800;letter-spacing:-.01em;color:#fff;display:flex;align-items:center;gap:10px;}
+  .pulse-dot{width:9px;height:9px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex:none;}
+  .pulse-dot.down{background:var(--red);animation:pulseRed 1.6s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.55);}70%{box-shadow:0 0 0 9px rgba(52,211,153,0);}100%{box-shadow:0 0 0 0 rgba(52,211,153,0);}}
+  @keyframes pulseRed{0%{box-shadow:0 0 0 0 rgba(240,85,76,.55);}70%{box-shadow:0 0 0 9px rgba(240,85,76,0);}100%{box-shadow:0 0 0 0 rgba(240,85,76,0);}}
+  .topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .last-updated{font-size:12px;color:var(--text-dim);text-align:right;}
+  .last-updated b{color:var(--text);font-family:'IBM Plex Mono',monospace;}
+  .btn{font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;background:var(--panel-2);color:var(--text);border:1px solid var(--border);padding:8px 13px;border-radius:6px;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:7px;}
+  .btn:hover{border-color:#3a4a56;background:#182029;}
+  .btn.primary{background:#123047;border-color:#1e4a68;color:#8fd8ec;}
+  .btn.primary:hover{background:#153a58;}
+  .btn.danger{background:#2c1614;border-color:#4a2420;color:#ff9a92;}
+
+  .kpi-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:18px;}
+  @media(max-width:1200px){.kpi-strip{grid-template-columns:repeat(4,1fr);}}
+  @media(max-width:680px){.kpi-strip{grid-template-columns:repeat(2,1fr);}}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:12px 13px;position:relative;overflow:hidden;}
+  .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--kpi-color,var(--cyan));}
+  .kpi-label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px;font-weight:600;}
+  .kpi-value{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600;color:#fff;display:flex;align-items:baseline;gap:5px;flex-wrap:wrap;}
+  .kpi-value .unit{font-size:11px;color:var(--text-dim);font-weight:500;}
+  .kpi-sub{font-size:11px;color:var(--text-dim);margin-top:4px;line-height:1.4;}
+  .kpi-asof{font-size:9.5px;color:var(--text-faint);margin-top:2px;font-family:'IBM Plex Mono',monospace;}
+  .led{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px;}
+  .led.on{background:var(--green);box-shadow:0 0 6px var(--green);}
+  .led.off{background:var(--red);box-shadow:0 0 6px var(--red);}
+
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px 16px 10px;margin-bottom:16px;}
+  .panel-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;}
+  .panel-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text);display:flex;align-items:center;gap:8px;}
+  .panel-title .bar{width:3px;height:14px;background:var(--cyan);border-radius:2px;}
+  .panel-sub{font-size:11.5px;color:var(--text-faint);}
+  .grid-2{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;}
+  .grid-2b{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:960px){.grid-2,.grid-2b{grid-template-columns:1fr;}}
+
+  select, input[type=text], input[type=number], input[type=date], input[type=time], textarea{
+    background:var(--panel-2);color:var(--text);border:1px solid var(--border);
+    border-radius:6px;padding:7px 9px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;width:100%;
+  }
+  textarea{font-family:'Inter',sans-serif;resize:vertical;min-height:44px;}
+  label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-bottom:4px;font-weight:600;}
+
+  .tabs{display:flex;gap:6px;}
+  .tab{font-size:11.5px;font-weight:600;padding:6px 11px;border-radius:6px;cursor:pointer;color:var(--text-dim);border:1px solid transparent;}
+  .tab.active{background:var(--panel-2);border-color:var(--border);color:var(--text);}
+
+  .gantt-wrap{overflow-x:auto;}
+  .gantt-row{display:flex;align-items:center;gap:10px;padding:4px 0;min-width:760px;}
+  .gantt-date{width:78px;flex:none;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);}
+  .gantt-track{flex:1;height:16px;border-radius:4px;overflow:hidden;display:flex;background:#0c1116;border:1px solid var(--border-soft);}
+  .gantt-seg{height:100%;}
+  .gantt-axis{display:flex;min-width:760px;margin-left:88px;padding-top:4px;}
+  .gantt-axis span{flex:1;font-size:9.5px;color:var(--text-faint);font-family:'IBM Plex Mono',monospace;text-align:left;}
+  .legend-row{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--text-dim);}
+  .legend-row .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px;}
+
+  .events-list{max-height:300px;overflow-y:auto;}
+  .event-row{display:flex;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border-soft);font-size:12.5px;align-items:flex-start;}
+  .event-row:last-child{border-bottom:none;}
+  .event-time{font-family:'IBM Plex Mono',monospace;color:var(--text-dim);flex:none;width:132px;}
+  .event-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;flex:none;height:fit-content;text-transform:uppercase;letter-spacing:.03em;}
+  .badge-vsg{background:#3a1c1a;color:#ff9a92;}
+  .badge-pq{background:#12331f;color:#7ee6ac;}
+  .event-desc{color:var(--text);flex:1;}
+
+  .table-scroll{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:12px;font-family:'IBM Plex Mono',monospace;}
+  thead th{position:sticky;top:0;background:var(--panel-2);color:var(--text-dim);text-align:right;padding:7px 8px;font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap;font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;}
+  thead th:first-child, thead th:nth-child(2){text-align:left;}
+  tbody td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--border-soft);white-space:nowrap;color:var(--text);}
+  tbody td:first-child, tbody td:nth-child(2){text-align:left;color:var(--text-dim);}
+  tbody tr:hover{background:#141c23;}
+  tbody tr.anomaly{background:rgba(240,85,76,.06);}
+  tbody tr.anomaly td:first-child{box-shadow:inset 3px 0 0 var(--red);}
+  tbody tr.manual td:first-child{box-shadow:inset 3px 0 0 var(--gold);}
+  tbody tr.anomaly-fault td:first-child{box-shadow:inset 3px 0 0 var(--red);}
+  tbody tr.anomaly-unbalance td:first-child{box-shadow:inset 3px 0 0 var(--amber);}
+  tbody tr.edited-row{background:rgba(240,168,60,.07);}
+  .row-tag{font-size:8.5px;font-weight:700;padding:1px 5px;border-radius:8px;text-transform:uppercase;letter-spacing:.03em;margin-left:5px;}
+  .row-tag.added{background:#3a2c12;color:var(--gold);}
+  .row-tag.edited{background:#123047;color:#8fd8ec;}
+  .edit-btn{cursor:pointer;font-size:12px;padding:2px 6px;border-radius:4px;background:var(--panel-2);border:1px solid var(--border);color:var(--text-dim);}
+  .edit-btn:hover{color:var(--text);border-color:#3a4a56;}
+  .date-nav{display:flex;align-items:center;gap:6px;}
+  .date-nav .btn{padding:6px 10px;}
+  .date-select-wrap{position:relative;}
+  .date-option-alert{color:var(--amber);}
+  .remarks-cell{max-width:260px;white-space:normal !important;text-align:left !important;color:var(--text-dim) !important;font-family:'Inter',sans-serif;font-size:11.5px;}
+  .tag{font-size:9.5px;padding:1px 6px;border-radius:10px;font-weight:700;}
+  .tag-pq{background:#12331f;color:#7ee6ac;}
+  .tag-vsg{background:#3a1c1a;color:#ff9a92;}
+  .tag-charge{color:#f5c518;}
+  .tag-discharge{color:#4fc3d9;}
+  .tag-idle{color:var(--text-faint);}
+  .led.pq{background:var(--green);box-shadow:0 0 6px var(--green);}
+  .led.vsg{background:var(--red);box-shadow:0 0 6px var(--red);}
+
+  .empty-note{color:var(--text-faint);font-size:12px;padding:20px;text-align:center;}
+  footer{text-align:center;color:var(--text-faint);font-size:11px;margin-top:30px;font-family:'IBM Plex Mono',monospace;}
+
+  .form-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
+  @media(max-width:900px){.form-grid{grid-template-columns:repeat(3,1fr);}}
+  @media(max-width:560px){.form-grid{grid-template-columns:repeat(2,1fr);}}
+  .form-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin:14px 0 8px;padding-top:10px;border-top:1px solid var(--border-soft);}
+  .form-section-title:first-child{margin-top:0;padding-top:0;border-top:none;}
+  .form-note{font-size:9.5px;color:var(--text-faint);margin-top:3px;}
+  .add-reading-toggle{cursor:pointer;}
+  #addReadingBody{display:none;}
+  #addReadingBody.open{display:block;}
+  .form-actions{display:flex;gap:10px;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--border-soft);}
+  .form-msg{font-size:12px;}
+  .form-msg.ok{color:var(--green);}
+  .form-msg.err{color:var(--red);}
+  .auto-derived{font-size:11px;color:var(--text-dim);background:var(--panel-2);border:1px solid var(--border);border-radius:6px;padding:7px 9px;display:flex;align-items:center;height:33px;}
+
+  .chart-svg text{font-family:'IBM Plex Mono',monospace;fill:var(--text-faint);font-size:9.5px;}
+  .chart-svg .gridline{stroke:#1a232b;stroke-width:1;}
+  .chart-svg .axisline{stroke:#232c34;stroke-width:1;}
+  .chart-svg circle{cursor:pointer;}
+  .chart-svg circle:hover{r:4.5;}
+  .chart-svg rect.bar-hit{cursor:pointer;}
+
+  #pointTooltip{
+    position:fixed; z-index:999; background:var(--panel-2); border:1px solid var(--border);
+    border-radius:8px; padding:10px 12px; font-size:12px; box-shadow:0 8px 24px rgba(0,0,0,.4);
+    max-width:280px; display:none;
+  }
+  #pointTooltip .pt-close{position:absolute;top:5px;right:8px;cursor:pointer;color:var(--text-faint);font-size:13px;}
+  #pointTooltip .pt-time{font-family:'IBM Plex Mono',monospace;font-weight:700;color:#fff;margin-bottom:6px;padding-right:14px;}
+  #pointTooltip .pt-row{display:flex;justify-content:space-between;gap:14px;padding:2px 0;color:var(--text-dim);}
+  #pointTooltip .pt-row b{color:var(--text);font-family:'IBM Plex Mono',monospace;font-weight:600;}
+  #pointTooltip .pt-remarks{margin-top:6px;padding-top:6px;border-top:1px solid var(--border-soft);color:var(--text-dim);font-size:11px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <div class="brand-eyebrow">BESS Daily Operation Log Book · Site Monitoring</div>
+    <div class="brand-title"><span id="headerDot" class="pulse-dot"></span> Din Farm, Pattoki – DSG</div>
+  </div>
+  <div class="topbar-right">
+    <div class="last-updated">Last logged reading<br><b id="lastUpdated">—</b></div>
+  </div>
+</div>
+
+<div class="kpi-strip" id="kpiStrip"></div>
+
+<!-- ADD NEW READING -->
+<div class="panel">
+  <div class="panel-head add-reading-toggle" id="addReadingToggle">
+    <div class="panel-title"><span class="bar"></span>➕ Add New Reading</div>
+    <div class="panel-sub" id="addReadingHint">Click to expand — saved readings stay in this dashboard even after closing the tab</div>
+  </div>
+  <div id="addReadingBody">
+    <form id="readingForm">
+      <div class="form-section-title">When &amp; Grid / AVR</div>
+      <div class="form-grid">
+        <div><label>Date</label><input type="date" id="f_date" required></div>
+        <div><label>Time</label><input type="time" id="f_time" required></div>
+        <div><label>Grid Status</label>
+          <select id="f_grid_status">
+            <option value="Available">Available</option>
+            <option value="Not Available">Not Available</option>
+          </select>
+        </div>
+        <div><label>BESS Mode (auto)</label><div class="auto-derived" id="f_mode_display">PQ</div></div>
+        <div><label>Grid Healthy?</label>
+          <select id="f_grid_healthy"><option value="Yes">Yes</option><option value="No">No</option></select>
+        </div>
+        <div></div>
+        <div><label>AVR R (A)</label><input type="number" step="any" id="f_avr_r" value="0"></div>
+        <div><label>AVR Y (A)</label><input type="number" step="any" id="f_avr_y" value="0"></div>
+        <div><label>AVR B (A)</label><input type="number" step="any" id="f_avr_b" value="0"></div>
+        <div><label>Grid R (A)</label><input type="number" step="any" id="f_grid_r_a" value="0"></div>
+        <div><label>Grid Y (A)</label><input type="number" step="any" id="f_grid_y_a" value="0"></div>
+        <div><label>Grid B (A)</label><input type="number" step="any" id="f_grid_b_a" value="0"></div>
+        <div><label>Grid N (A)</label><input type="number" step="any" id="f_grid_n_a" value="0"></div>
+        <div><label>Grid R (kW)</label><input type="number" step="any" id="f_grid_r_kw" value="0"></div>
+        <div><label>Grid Y (kW)</label><input type="number" step="any" id="f_grid_y_kw" value="0"></div>
+        <div><label>Grid B (kW)</label><input type="number" step="any" id="f_grid_b_kw" value="0"></div>
+        <div><label>Grid Total (kW)</label><input type="number" step="any" id="f_grid_total_kw" value="0"></div>
+      </div>
+
+      <div class="form-section-title">BESS</div>
+      <div class="form-grid">
+        <div><label>BESS Status</label>
+          <select id="f_bess_status"><option>Idle</option><option>Charging</option><option>Discharging</option></select>
+        </div>
+        <div><label>SOC (%)</label><input type="number" step="any" id="f_soc" value="0"></div>
+        <div><label>BESS R (A)</label><input type="number" step="any" id="f_bess_r_a" value="0"></div>
+        <div><label>BESS Y (A)</label><input type="number" step="any" id="f_bess_y_a" value="0"></div>
+        <div><label>BESS B (A)</label><input type="number" step="any" id="f_bess_b_a" value="0"></div>
+        <div><label>BESS N (A)</label><input type="number" step="any" id="f_bess_n_a" value="0"></div>
+        <div><label>BESS R (kW)</label><input type="number" step="any" id="f_bess_r_kw" value="0"></div>
+        <div><label>BESS Y (kW)</label><input type="number" step="any" id="f_bess_y_kw" value="0"></div>
+        <div><label>BESS B (kW)</label><input type="number" step="any" id="f_bess_b_kw" value="0"></div>
+        <div><label>BESS Power (kW)</label><input type="number" step="any" id="f_bess_power_kw" value="0">
+          <div class="form-note">− charging / + discharging</div></div>
+      </div>
+
+      <div class="form-section-title">Solar &amp; Load</div>
+      <div class="form-grid">
+        <div><label>Solar R (A)</label><input type="number" step="any" id="f_solar_r_a" value="0"></div>
+        <div><label>Solar Y (A)</label><input type="number" step="any" id="f_solar_y_a" value="0"></div>
+        <div><label>Solar B (A)</label><input type="number" step="any" id="f_solar_b_a" value="0"></div>
+        <div><label>Solar R (kW)</label><input type="number" step="any" id="f_solar_r_kw" value="0"></div>
+        <div><label>Solar Y (kW)</label><input type="number" step="any" id="f_solar_y_kw" value="0"></div>
+        <div><label>Solar B (kW)</label><input type="number" step="any" id="f_solar_b_kw" value="0"></div>
+        <div><label>Solar Power (kW)</label><input type="number" step="any" id="f_solar_power_kw" value="0"></div>
+        <div><label>Load (kW)</label><input type="number" step="any" id="f_load_kw" value="0"></div>
+      </div>
+
+      <div class="form-section-title">Remarks</div>
+      <textarea id="f_remarks" placeholder="e.g. Grid healthy, WAPDA+Solar feeding load, BESS charging from PV"></textarea>
+
+      <div class="form-actions">
+        <button type="submit" class="btn primary"><span id="submitBtnLabel">💾 Save Reading</span></button>
+        <button type="button" class="btn" id="cancelEditBtn" style="display:none;">✕ Cancel edit</button>
+        <button type="button" class="btn danger" id="clearManualBtn">🗑 Clear all manual edits/additions</button>
+        <span class="form-msg" id="formMsg"></span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <div class="panel-title"><span class="bar"></span>Reading Explorer</div>
+    <div class="date-nav">
+      <button type="button" class="btn" id="prevDayBtn" title="Previous day">◀</button>
+      <select id="dateSelect"></select>
+      <button type="button" class="btn" id="nextDayBtn" title="Next day">▶</button>
+      <button type="button" class="btn" id="todayBtn" title="Jump to most recent day">⏵ Latest</button>
+    </div>
+  </div>
+  <div class="grid-2b" id="dayStatsRow" style="margin-bottom:14px;"></div>
+
+  <div class="panel-title" style="margin-bottom:8px;"><span class="bar"></span>Power Flow — Grid / BESS / Solar / Load</div>
+  <div id="powerChart"></div>
+</div>
+
+<div class="grid-2">
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title"><span class="bar"></span>Phase Currents (R/Y/B)</div>
+      <div class="tabs" id="currentTabs">
+        <div class="tab active" data-side="grid">GRID</div>
+        <div class="tab" data-side="bess">BESS</div>
+        <div class="tab" data-side="solar">SOLAR</div>
+      </div>
+    </div>
+    <div id="currentChart"></div>
+    <div class="legend-row">
+      <span><span class="sw" style="background:var(--phase-r)"></span>R phase</span>
+      <span><span class="sw" style="background:var(--phase-y)"></span>Y phase</span>
+      <span><span class="sw" style="background:var(--phase-b)"></span>B phase</span>
+      <span style="color:var(--text-faint)">Flag threshold: &gt;15% deviation from average</span>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title"><span class="bar"></span>BESS State of Charge</div></div>
+    <div id="socChart"></div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <div class="panel-title"><span class="bar"></span>Grid Availability &amp; BESS Mode Timeline — All Logged Days</div>
+    <div class="panel-sub">Each row = one day, 00:00 → 24:00, based on logged readings</div>
+  </div>
+  <div class="gantt-wrap">
+    <div id="ganttBody"></div>
+    <div class="gantt-axis"><span>00</span><span>03</span><span>06</span><span>09</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span></div>
+  </div>
+  <div class="legend-row">
+    <span><span class="sw" style="background:var(--green)"></span>Grid Available (PQ mode)</span>
+    <span><span class="sw" style="background:var(--red)"></span>Grid Not Available (VSG mode)</span>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title"><span class="bar"></span>Grid Downtime Per Day</div>
+      <div class="panel-sub">Hours grid was unavailable (VSG / islanded)</div>
+    </div>
+    <div id="downtimeChart"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title"><span class="bar"></span>PQ ⇄ VSG Switching Events</div>
+      <div class="panel-sub">Every recorded transition — grid lost → VSG, grid restored → PQ</div>
+    </div>
+    <div class="events-list" id="eventsList"></div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <div class="panel-title"><span class="bar"></span>Readings — <span id="tableDateLabel"></span></div>
+    <div class="panel-sub" id="tableAnomalyCount"></div>
+  </div>
+  <div class="table-scroll">
+    <table id="readingsTable">
+      <thead><tr>
+        <th>Time</th><th>Grid</th><th>AVR R/Y/B</th><th>Grid R/Y/B (A)</th><th>Grid kW</th>
+        <th>Mode</th><th>BESS</th><th>SOC</th><th>BESS R/Y/B (A)</th><th>BESS kW</th>
+        <th>Solar R/Y/B (A)</th><th>Solar kW</th><th>Load kW</th><th>Remarks</th>
+      </tr></thead>
+      <tbody id="readingsBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<footer>DIN FARM BESS MONITORING · Rendered client-side from logbook data · All figures reflect the most recent logged reading, not a live feed</footer>
+
+<div id="pointTooltip"></div>
+
+<script>
+const DIN_FARM_API_URL = '<?= webAppUrl ?>';
+const DIN_FARM_CLOUD_CHUNK = 1200;
+
+function cloudJsonp(params) {
+  return new Promise((resolve, reject) => {
+    const cb = '__dinFarmCb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const script = document.createElement('script');
+    const cleanup = () => {
+      try { delete window[cb]; } catch(e) { window[cb] = undefined; }
+      if (script.parentNode) script.parentNode.removeChild(script);
+    };
+    const timer = setTimeout(() => { cleanup(); reject(new Error('Cloud request timed out')); }, 20000);
+    window[cb] = (data) => { clearTimeout(timer); cleanup(); resolve(data); };
+    const q = new URLSearchParams(params);
+    q.set('callback', cb);
+    script.onerror = () => { clearTimeout(timer); cleanup(); reject(new Error('Cloud request failed')); };
+    script.src = DIN_FARM_API_URL + '?' + q.toString();
+    document.head.appendChild(script);
+  });
+}
+
+window.storage = window.storage || {
+  async get(key) {
+    try { const r=await fetch('/api/state/d2/'+encodeURIComponent(key)); const j=await r.json(); if(j.ok && j.value!=null) return {value:j.value}; } catch(e){ console.warn('Server read failed:',e); }
+    try { const v=localStorage.getItem('din_farm_'+key); return v==null?null:{value:v}; } catch(e){ return null; }
+  },
+  async set(key,value) {
+    try { const r=await fetch('/api/state/d2/'+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:String(value)})}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'save failed'); try{localStorage.setItem('din_farm_'+key,value);}catch(e){} return true; }
+    catch(e){ console.error('Server save failed:',e); alert('Save failed — admin access required.'); return false; }
+  }
+};
+const EMBEDDED_DATA = [{"date": "2026-08-07", "time": "13:00", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 40, "avr_y": 34, "avr_b": 38, "grid_r_a": 59, "grid_y_a": 49, "grid_b_a": 52, "grid_n_a": 9, "grid_r_kw": 10, "grid_y_kw": 9, "grid_b_kw": 10, "grid_total_kw": 29, "bess_mode": "PQ", "bess_status": "Charging", "soc": 54, "bess_r_a": 41, "bess_y_a": 41, "bess_b_a": 49, "bess_n_a": 9, "bess_r_kw": 9, "bess_y_kw": 9, "bess_b_kw": 11, "bess_power_kw": -30, "solar_r_a": 205, "solar_y_a": 205, "solar_b_a": 205, "solar_r_kw": 45, "solar_y_kw": 47, "solar_b_kw": 48, "solar_power_kw": 180, "load_kw": 181, "remarks": "Grid healthy, WAPDA+Solar feeding load, BESS charging from PV"}, {"date": "2026-08-07", "time": "13:45", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Charging", "soc": 67, "bess_r_a": 307, "bess_y_a": 319, "bess_b_a": 313, "bess_n_a": 17, "bess_r_kw": 67, "bess_y_kw": 69, "bess_b_kw": 77, "bess_power_kw": -214, "solar_r_a": 383, "solar_y_a": 384, "solar_b_a": 383, "solar_r_kw": 95, "solar_y_kw": 95, "solar_b_kw": 95, "solar_power_kw": 392, "load_kw": 178, "remarks": "Grid Unhealthy, Solar feeding Load & Carge Battery as well"}, {"date": "2026-08-07", "time": "14:02", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 51, "avr_y": 43, "avr_b": 51, "grid_r_a": 60, "grid_y_a": 57, "grid_b_a": 62, "grid_n_a": 10, "grid_r_kw": 10, "grid_y_kw": 10, "grid_b_kw": 10, "grid_total_kw": 30, "bess_mode": "PQ", "bess_status": "Charging", "soc": 66, "bess_r_a": 136, "bess_y_a": 136, "bess_b_a": 140, "bess_n_a": 6, "bess_r_kw": 29, "bess_y_kw": 29, "bess_b_kw": 33, "bess_power_kw": -90, "solar_r_a": 215, "solar_y_a": 215, "solar_b_a": 216, "solar_r_kw": 45, "solar_y_kw": 45, "solar_b_kw": 47, "solar_power_kw": 231, "load_kw": 178, "remarks": "Grid healthy, WAPDA+Solar feeding load, BESS charging from PV"}, {"date": "2026-08-07", "time": "18:00", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 174, "avr_y": 192, "avr_b": 185, "grid_r_a": 198, "grid_y_a": 214, "grid_b_a": 210, "grid_n_a": 15, "grid_r_kw": 43, "grid_y_kw": 48, "grid_b_kw": 47, "grid_total_kw": 140, "bess_mode": "PQ", "bess_status": "Idle", "soc": 88, "bess_r_a": 6, "bess_y_a": 5, "bess_b_a": 6, "bess_n_a": 5, "bess_r_kw": 0.25, "bess_y_kw": 0.23, "bess_b_kw": 0.44, "bess_power_kw": 1, "solar_r_a": 41, "solar_y_a": 41, "solar_b_a": 41, "solar_r_kw": 9, "solar_y_kw": 9, "solar_b_kw": 9, "solar_power_kw": 34, "load_kw": 173, "remarks": "Grid healthy, WAPDA+Solar feeding load, BESS is in Idle condition due to low PV"}, {"date": "2026-08-07", "time": "19:20", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 89, "bess_r_a": 265, "bess_y_a": 240, "bess_b_a": 240, "bess_n_a": 34, "bess_r_kw": 58, "bess_y_kw": 52, "bess_b_kw": 52, "bess_power_kw": 165, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 165, "remarks": "Grid Unhealthy, BESS Feeding Load - Discahrging"}, {"date": "2026-08-07", "time": "20:20", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 234, "avr_y": 230, "avr_b": 226, "grid_r_a": 247, "grid_y_a": 245, "grid_b_a": 243, "grid_n_a": 12, "grid_r_kw": 52, "grid_y_kw": 51, "grid_b_kw": 52, "grid_total_kw": 155, "bess_mode": "PQ", "bess_status": "Idle", "soc": 58, "bess_r_a": 5, "bess_y_a": 5, "bess_b_a": 8, "bess_n_a": 6, "bess_r_kw": 0.3, "bess_y_kw": 0.2, "bess_b_kw": 1.2, "bess_power_kw": 2, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 158, "remarks": "Grid healthy, WAPDA feeding load, BESS is in Idle condition due to 0 PV"}, {"date": "2026-08-08", "time": "09:45", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 63, "avr_y": 71, "avr_b": 86, "grid_r_a": 56, "grid_y_a": 64, "grid_b_a": 83, "grid_n_a": 6, "grid_r_kw": 2, "grid_y_kw": 8, "grid_b_kw": 4, "grid_total_kw": 15, "bess_mode": "PQ", "bess_status": "Charging", "soc": 91, "bess_r_a": 250, "bess_y_a": 252, "bess_b_a": 255, "bess_n_a": 9, "bess_r_kw": 53, "bess_y_kw": 55, "bess_b_kw": 58, "bess_power_kw": 168, "solar_r_a": 369, "solar_y_a": 369, "solar_b_a": 369, "solar_r_kw": 79, "solar_y_kw": 82, "solar_b_kw": 85, "solar_power_kw": 331, "load_kw": 178, "remarks": "Grid healthy, WAPDA+Solar feeding load, BESS charging from PV"}, {"date": "2026-08-08", "time": "10:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 74, "avr_y": 59, "avr_b": 67, "grid_r_a": 99, "grid_y_a": 86, "grid_b_a": 94, "grid_n_a": 8, "grid_r_kw": 2, "grid_y_kw": 2, "grid_b_kw": 3, "grid_total_kw": 7, "bess_mode": "PQ", "bess_status": "Idle", "soc": 98, "bess_r_a": 4, "bess_y_a": 4, "bess_b_a": 10, "bess_n_a": 9, "bess_r_kw": 0.2, "bess_y_kw": 0.2, "bess_b_kw": 2, "bess_power_kw": 2, "solar_r_a": 215, "solar_y_a": 215, "solar_b_a": 215, "solar_r_kw": 43, "solar_y_kw": 44, "solar_b_kw": 46, "solar_power_kw": 175, "load_kw": 181, "remarks": "Grid healthy, WAPDA+Solar feeding load, BESS is in idle due to Max SOC"}, {"date": "2026-08-08", "time": "11:35", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 98, "bess_r_a": 132, "bess_y_a": 137, "bess_b_a": 137, "bess_n_a": 16, "bess_r_kw": 14, "bess_y_kw": 15, "bess_b_kw": 18, "bess_power_kw": 48, "solar_r_a": 230, "solar_y_a": 230, "solar_b_a": 230, "solar_r_kw": 52, "solar_y_kw": 52, "solar_b_kw": 53, "solar_power_kw": 138, "load_kw": 186, "remarks": "Grid unhealthy, BESS+Solar feeding load, BESS is discharging as PV is not enough due to cloudy weather"}, {"date": "2026-08-08", "time": "11:45", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 108, "avr_y": 109, "avr_b": 107, "grid_r_a": 124, "grid_y_a": 120, "grid_b_a": 116, "grid_n_a": 14, "grid_r_kw": 15, "grid_y_kw": 15, "grid_b_kw": 15, "grid_total_kw": 45, "bess_mode": "PQ", "bess_status": "Idle", "soc": 98, "bess_r_a": 6, "bess_y_a": 6, "bess_b_a": 6, "bess_n_a": 6, "bess_r_kw": 0.3, "bess_y_kw": 0.3, "bess_b_kw": 0.3, "bess_power_kw": 1, "solar_r_a": 213, "solar_y_a": 213, "solar_b_a": 213, "solar_r_kw": 45, "solar_y_kw": 46, "solar_b_kw": 46, "solar_power_kw": 139, "load_kw": 188, "remarks": "Grid healthy, WAPDA+Solar feeding load, BESS is in idle due to Max SOC"}, {"date": "2026-08-08", "time": "19:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 98, "bess_r_a": 244, "bess_y_a": 213, "bess_b_a": 223, "bess_n_a": 36, "bess_r_kw": 55, "bess_y_kw": 49, "bess_b_kw": 51, "bess_power_kw": 155, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 153, "remarks": "Grid unhealthy, BESS feeding load, BESS is discharging"}, {"date": "2026-08-08", "time": "20:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 183, "avr_y": 189, "avr_b": 216, "grid_r_a": 215, "grid_y_a": 220, "grid_b_a": 246, "grid_n_a": 13, "grid_r_kw": 45, "grid_y_kw": 48, "grid_b_kw": 55, "grid_total_kw": 147, "bess_mode": "PQ", "bess_status": "Idle", "soc": 70, "bess_r_a": 7, "bess_y_a": 6, "bess_b_a": 10, "bess_n_a": 8, "bess_r_kw": 0.3, "bess_y_kw": 0.2, "bess_b_kw": 1.9, "bess_power_kw": 2.3, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 141, "remarks": "Grid healthy, WAPDA feeding load, BESS is in Idle condition due to 0 PV"}, {"date": "2026-08-08", "time": "22:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 70, "bess_r_a": 234, "bess_y_a": 219, "bess_b_a": 216, "bess_n_a": 23, "bess_r_kw": 50, "bess_y_kw": 47, "bess_b_kw": 46, "bess_power_kw": 142, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 143, "remarks": "Grid unhealthy, BESS feeding load, BESS is discharging"}, {"date": "2026-08-08", "time": "23:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 189, "avr_y": 188, "avr_b": 198, "grid_r_a": 201, "grid_y_a": 206, "grid_b_a": 226, "grid_n_a": 9, "grid_r_kw": 41, "grid_y_kw": 43, "grid_b_kw": 51, "grid_total_kw": 135, "bess_mode": "PQ", "bess_status": "Idle", "soc": 45, "bess_r_a": 6, "bess_y_a": 5, "bess_b_a": 6, "bess_n_a": 5, "bess_r_kw": 0.3, "bess_y_kw": 0.2, "bess_b_kw": 0.3, "bess_power_kw": 0.8, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 131, "remarks": "Grid healthy, WAPDA feeding load, BESS is in Idle condition due to 0 PV"}, {"date": "2026-08-09", "time": "13:45", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 55, "avr_y": 29, "avr_b": 39, "grid_r_a": 33, "grid_y_a": 37, "grid_b_a": 52, "grid_n_a": 12, "grid_r_kw": 3, "grid_y_kw": 5, "grid_b_kw": 7, "grid_total_kw": 15, "bess_mode": "PQ", "bess_status": "Charging", "soc": 86, "bess_r_a": 485, "bess_y_a": 485, "bess_b_a": 491, "bess_n_a": 9, "bess_r_kw": 108, "bess_y_kw": 108, "bess_b_kw": 114, "bess_power_kw": 331, "solar_r_a": 522, "solar_y_a": 524, "solar_b_a": 524, "solar_r_kw": 116, "solar_y_kw": 117, "solar_b_kw": 122, "solar_power_kw": 469, "load_kw": 162, "remarks": "Grid healthy, WAPDA+Solar feeding load, BESS charging from PV"}, {"date": "2026-08-09", "time": "17:45", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 148, "avr_y": 148, "avr_b": 145, "grid_r_a": 139, "grid_y_a": 143, "grid_b_a": 142, "grid_n_a": 3, "grid_r_kw": 29, "grid_y_kw": 30, "grid_b_kw": 30, "grid_total_kw": 89, "bess_mode": "PQ", "bess_status": "Idle", "soc": 98, "bess_r_a": 4, "bess_y_a": 4, "bess_b_a": 5, "bess_n_a": 4, "bess_r_kw": 0.3, "bess_y_kw": 0.3, "bess_b_kw": 0.5, "bess_power_kw": 1, "solar_r_a": 77, "solar_y_a": 77, "solar_b_a": 77, "solar_r_kw": 17, "solar_y_kw": 17, "solar_b_kw": 18, "solar_power_kw": 65, "load_kw": 155, "remarks": "Grid healthy, WAPDA+Solar feeding load, BESS is in Idle condition due to Max SOC, Weather was cloudy"}, {"date": "2026-08-09", "time": "19:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 97, "bess_r_a": 231, "bess_y_a": 227, "bess_b_a": 226, "bess_n_a": 19, "bess_r_kw": 53, "bess_y_kw": 52, "bess_b_kw": 52, "bess_power_kw": 156, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 158, "remarks": "Grid unhealthy, BESS feeding load, BESS is discharging"}, {"date": "2026-08-09", "time": "20:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 207, "avr_y": 218, "avr_b": 224, "grid_r_a": 218, "grid_y_a": 229, "grid_b_a": 237, "grid_n_a": 8, "grid_r_kw": 51, "grid_y_kw": 51, "grid_b_kw": 55, "grid_total_kw": 158, "bess_mode": "PQ", "bess_status": "Idle", "soc": 68, "bess_r_a": 4, "bess_y_a": 4, "bess_b_a": 12, "bess_n_a": 10, "bess_r_kw": 0.2, "bess_y_kw": 0.2, "bess_b_kw": 2, "bess_power_kw": 3, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 149, "remarks": "Grid healthy, WAPDA feeding load, BESS is in Idle condition due to 0 PV"}, {"date": "2026-08-09", "time": "21:10", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 67, "bess_r_a": 229, "bess_y_a": 215, "bess_b_a": 222, "bess_n_a": 23, "bess_r_kw": 52, "bess_y_kw": 50, "bess_b_kw": 51, "bess_power_kw": 153, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 154, "remarks": "Grid unhealthy, BESS feeding load, BESS is discharging"}, {"date": "2026-08-09", "time": "21:25", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 213, "avr_y": 213, "avr_b": 217, "grid_r_a": 242, "grid_y_a": 232, "grid_b_a": 243, "grid_n_a": 18, "grid_r_kw": 53, "grid_y_kw": 50, "grid_b_kw": 54, "grid_total_kw": 157, "bess_mode": "PQ", "bess_status": "Idle", "soc": 59, "bess_r_a": 5, "bess_y_a": 5, "bess_b_a": 6, "bess_n_a": 4, "bess_r_kw": 0.3, "bess_y_kw": 0.2, "bess_b_kw": 0.3, "bess_power_kw": 0.8, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 157, "remarks": "Grid healthy, WAPDA feeding load, BESS is in Idle condition due to 0 PV"}, {"date": "2026-08-09", "time": "22:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 58, "bess_r_a": 244, "bess_y_a": 221, "bess_b_a": 223, "bess_n_a": 30, "bess_r_kw": 54, "bess_y_kw": 49, "bess_b_kw": 49, "bess_power_kw": 152, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 153, "remarks": "Grid unhealthy, BESS feeding load, BESS is discharging"}, {"date": "2026-08-09", "time": "23:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 208, "avr_y": 196, "avr_b": 200, "grid_r_a": 227, "grid_y_a": 217, "grid_b_a": 220, "grid_n_a": 22, "grid_r_kw": 46, "grid_y_kw": 45, "grid_b_kw": 47, "grid_total_kw": 138, "bess_mode": "PQ", "bess_status": "Idle", "soc": 26, "bess_r_a": 6, "bess_y_a": 5, "bess_b_a": 6, "bess_n_a": 5, "bess_r_kw": 0.3, "bess_y_kw": 0.2, "bess_b_kw": 0.3, "bess_power_kw": 0.8, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 147, "remarks": "Grid healthy, WAPDA feeding load, BESS is in Idle condition due to 0 PV"}, {"date": "2026-08-10", "time": "12:00", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 86, "avr_y": 86, "avr_b": 98, "grid_r_a": 100, "grid_y_a": 100, "grid_b_a": 118, "grid_n_a": 6, "grid_r_kw": 4, "grid_y_kw": 7, "grid_b_kw": 7, "grid_total_kw": 21, "bess_mode": "PQ", "bess_status": "Charging", "soc": 35, "bess_r_a": 260, "bess_y_a": 261, "bess_b_a": 261, "bess_n_a": 6, "bess_r_kw": 59, "bess_y_kw": 60, "bess_b_kw": 62, "bess_power_kw": 185, "solar_r_a": 436, "solar_y_a": 438, "solar_b_a": 438, "solar_r_kw": 90, "solar_y_kw": 91, "solar_b_kw": 94, "solar_power_kw": 380, "load_kw": 207, "remarks": "Grid healthy, WAPDA+Solar feeding load, BESS charging from PV"}, {"date": "2026-08-10", "time": "14:00", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Charging", "soc": 97, "bess_r_a": 129, "bess_y_a": 122, "bess_b_a": 125, "bess_n_a": 15, "bess_r_kw": 12, "bess_y_kw": 11, "bess_b_kw": 13, "bess_power_kw": 36, "solar_r_a": 224, "solar_y_a": 224, "solar_b_a": 224, "solar_r_kw": 51, "solar_y_kw": 51, "solar_b_kw": 51, "solar_power_kw": 210, "load_kw": 180, "remarks": "Grid unhealthy, Solar feeding load, BESS charging from PV"}, {"date": "2026-08-10", "time": "14:30", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 50, "avr_y": 51, "avr_b": 62, "grid_r_a": 60, "grid_y_a": 64, "grid_b_a": 74, "grid_n_a": 7, "grid_r_kw": 1, "grid_y_kw": 2, "grid_b_kw": 2, "grid_total_kw": 4, "bess_mode": "PQ", "bess_status": "Idle", "soc": 98, "bess_r_a": 5, "bess_y_a": 5, "bess_b_a": 11, "bess_n_a": 10, "bess_r_kw": 0.3, "bess_y_kw": 0.3, "bess_b_kw": 2.3, "bess_power_kw": 3, "solar_r_a": 197, "solar_y_a": 196, "solar_b_a": 197, "solar_r_kw": 44, "solar_y_kw": 44, "solar_b_kw": 43, "solar_power_kw": 175, "load_kw": 185, "remarks": "Grid healthy, WAPDA+Solar feeding load, BESS is in idle condition as Max SOC achieved"}, {"date": "2026-08-10", "time": "19:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 97, "bess_r_a": 265, "bess_y_a": 250, "bess_b_a": 252, "bess_n_a": 25, "bess_r_kw": 59, "bess_y_kw": 56, "bess_b_kw": 56, "bess_power_kw": 172, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 176, "remarks": "Grid unhealthy, BESS feeding load, BESS is discharging as PV is unavailable"}, {"date": "2026-08-10", "time": "20:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 30, "avr_y": 43, "avr_b": 56, "grid_r_a": 238, "grid_y_a": 252, "grid_b_a": 265, "grid_n_a": 13, "grid_r_kw": 50, "grid_y_kw": 54, "grid_b_kw": 58, "grid_total_kw": 166, "bess_mode": "PQ", "bess_status": "Idle", "soc": 67, "bess_r_a": 5, "bess_y_a": 5, "bess_b_a": 11, "bess_n_a": 9, "bess_r_kw": 0.2, "bess_y_kw": 0.2, "bess_b_kw": 2.1, "bess_power_kw": 3, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 167, "remarks": "Grid healthy, WAPDA feeding load, BESS is in idle condition."}, {"date": "2026-08-10", "time": "22:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 66, "bess_r_a": 278, "bess_y_a": 263, "bess_b_a": 261, "bess_n_a": 32, "bess_r_kw": 63, "bess_y_kw": 61, "bess_b_kw": 60, "bess_power_kw": 184, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 185, "remarks": "Grid unhealthy, BESS feeding load, BESS is discharging as PV is unavailable"}, {"date": "2026-08-10", "time": "23:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 231, "avr_y": 234, "avr_b": 242, "grid_r_a": 234, "grid_y_a": 244, "grid_b_a": 249, "grid_n_a": 12, "grid_r_kw": 50, "grid_y_kw": 52, "grid_b_kw": 56, "grid_total_kw": 160, "bess_mode": "PQ", "bess_status": "Idle", "soc": 36, "bess_r_a": 5, "bess_y_a": 5, "bess_b_a": 6, "bess_n_a": 4, "bess_r_kw": 0.2, "bess_y_kw": 0.2, "bess_b_kw": 0.3, "bess_power_kw": 0.8, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 160, "remarks": "Grid healthy, WAPDA feeding load, BESS is in idle condition."}, {"date": "2026-08-11", "time": "09:45", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Charging", "soc": 45, "bess_r_a": 239, "bess_y_a": 237, "bess_b_a": 242, "bess_n_a": 10, "bess_r_kw": 57, "bess_y_kw": 57, "bess_b_kw": 54, "bess_power_kw": 168, "solar_r_a": 363, "solar_y_a": 364, "solar_b_a": 364, "solar_r_kw": 78, "solar_y_kw": 79, "solar_b_kw": 82, "solar_power_kw": 335, "load_kw": 169, "remarks": "Grid Unhealthy, Solar feeding load, BESS is in charging condition."}, {"date": "2026-08-11", "time": "09:55", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 43, "avr_y": 43, "avr_b": 58, "grid_r_a": 50, "grid_y_a": 54, "grid_b_a": 70, "grid_n_a": 4, "grid_r_kw": 3, "grid_y_kw": 7, "grid_b_kw": 7, "grid_total_kw": 15, "bess_mode": "PQ", "bess_status": "Charging", "soc": 50, "bess_r_a": 268, "bess_y_a": 268, "bess_b_a": 270, "bess_n_a": 9, "bess_r_kw": 57, "bess_y_kw": 57, "bess_b_kw": 62, "bess_power_kw": 177, "solar_r_a": 372, "solar_y_a": 372, "solar_b_a": 373, "solar_r_kw": 80, "solar_y_kw": 80, "solar_b_kw": 83, "solar_power_kw": 329, "load_kw": 177, "remarks": "Grid healthy, Solar & WAPDA feeding load, BESS is in charging condition."}, {"date": "2026-08-11", "time": "15:51", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 96, "bess_r_a": 155, "bess_y_a": 160, "bess_b_a": 157, "bess_n_a": 15, "bess_r_kw": 5, "bess_y_kw": 7, "bess_b_kw": 4, "bess_power_kw": 17, "solar_r_a": 186, "solar_y_a": 187, "solar_b_a": 186, "solar_r_kw": 43, "solar_y_kw": 43, "solar_b_kw": 44, "solar_power_kw": 176, "load_kw": 194, "remarks": "Grid Unhealthy, Solar and BESS feeding load, BESS is in discharging condition due to low pv."}, {"date": "2026-08-11", "time": "16:20", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 146, "avr_y": 150, "avr_b": 153, "grid_r_a": 162, "grid_y_a": 166, "grid_b_a": 166, "grid_n_a": 6, "grid_r_kw": 34, "grid_y_kw": 35, "grid_b_kw": 36, "grid_total_kw": 107, "bess_mode": "PQ", "bess_status": "Idle", "soc": 91, "bess_r_a": 5, "bess_y_a": 5, "bess_b_a": 6, "bess_n_a": 5, "bess_r_kw": 0.2, "bess_y_kw": 0.2, "bess_b_kw": 0.3, "bess_power_kw": 0.8, "solar_r_a": 64, "solar_y_a": 64, "solar_b_a": 65, "solar_r_kw": 17, "solar_y_kw": 17, "solar_b_kw": 17, "solar_power_kw": 68, "load_kw": 164, "remarks": "Grid healthy, Solar & WAPDA feeding load, BESS is in idle condition due to low pv. "}, {"date": "2026-08-11", "time": "19:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 90, "bess_r_a": 290, "bess_y_a": 290, "bess_b_a": 268, "bess_n_a": 34, "bess_r_kw": 66, "bess_y_kw": 60, "bess_b_kw": 60, "bess_power_kw": 186, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 186, "remarks": "Grid unhealthy, BESS feeding load, BESS is in discharging condition. "}, {"date": "2026-08-11", "time": "20:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 245, "avr_y": 242, "avr_b": 255, "grid_r_a": 257, "grid_y_a": 254, "grid_b_a": 269, "grid_n_a": 8, "grid_r_kw": 55, "grid_y_kw": 55, "grid_b_kw": 59, "grid_total_kw": 170, "bess_mode": "PQ", "bess_status": "Idle", "soc": 59, "bess_r_a": 6, "bess_y_a": 5, "bess_b_a": 9, "bess_n_a": 7, "bess_r_kw": 0.2, "bess_y_kw": 0.2, "bess_b_kw": 1.5, "bess_power_kw": 2, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 165, "remarks": "Grid healthy, WAPDA feeding load, BESS is in idle condition due to 0 pv. "}, {"date": "2026-08-11", "time": "22:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 59, "bess_r_a": 261, "bess_y_a": 250, "bess_b_a": 251, "bess_n_a": 23, "bess_r_kw": 54, "bess_y_kw": 55, "bess_b_kw": 56, "bess_power_kw": 165, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 167, "remarks": "Grid unhealthy, BESS feeding load, BESS is in discharging condition. "}, {"date": "2026-08-11", "time": "23:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 232, "avr_y": 227, "avr_b": 237, "grid_r_a": 250, "grid_y_a": 244, "grid_b_a": 261, "grid_n_a": 10, "grid_r_kw": 53, "grid_y_kw": 53, "grid_b_kw": 57, "grid_total_kw": 161, "bess_mode": "PQ", "bess_status": "Idle", "soc": 29, "bess_r_a": 6, "bess_y_a": 5, "bess_b_a": 8, "bess_n_a": 5, "bess_r_kw": 0.2, "bess_y_kw": 0.2, "bess_b_kw": 0.8, "bess_power_kw": 1.3, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 152, "remarks": "Grid healthy, WAPDA feeding load, BESS is in idle condition due to 0 pv. "}, {"date": "2026-08-12", "time": "10:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Charging", "soc": 62, "bess_r_a": 211, "bess_y_a": 216, "bess_b_a": 222, "bess_n_a": 16, "bess_r_kw": 44, "bess_y_kw": 45, "bess_b_kw": 46, "bess_power_kw": 134, "solar_r_a": 361, "solar_y_a": 362, "solar_b_a": 361, "solar_r_kw": 83, "solar_y_kw": 83, "solar_b_kw": 83, "solar_power_kw": 335, "load_kw": 205, "remarks": "Grid Unhealthy, Solar feeding load, BESS is in charging condition by solar."}, {"date": "2026-08-12", "time": "12:40", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 31, "avr_y": 25, "avr_b": 32, "grid_r_a": 47, "grid_y_a": 33, "grid_b_a": 44, "grid_n_a": 19, "grid_r_kw": 4, "grid_y_kw": 2, "grid_b_kw": 4, "grid_total_kw": 11, "bess_mode": "PQ", "bess_status": "Idle", "soc": 98, "bess_r_a": 6, "bess_y_a": 7, "bess_b_a": 5, "bess_n_a": 7, "bess_r_kw": 0.2, "bess_y_kw": 0.2, "bess_b_kw": 0.4, "bess_power_kw": 0.9, "solar_r_a": 201, "solar_y_a": 202, "solar_b_a": 201, "solar_r_kw": 43, "solar_y_kw": 44, "solar_b_kw": 43, "solar_power_kw": 169, "load_kw": 170, "remarks": "Grid healthy, Solar & WAPDA feeding load, BESS is in idle condition due to max SOC."}, {"date": "2026-08-12", "time": "19:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 98, "bess_r_a": 266, "bess_y_a": 255, "bess_b_a": 263, "bess_n_a": 25, "bess_r_kw": 60, "bess_y_kw": 58, "bess_b_kw": 60, "bess_power_kw": 178, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 177, "remarks": "Grid unhealthy, BESS feeding load, BESS is in discharging condition. "}, {"date": "2026-08-12", "time": "20:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 234, "avr_y": 245, "avr_b": 273, "grid_r_a": 245, "grid_y_a": 260, "grid_b_a": 285, "grid_n_a": 13, "grid_r_kw": 54, "grid_y_kw": 58, "grid_b_kw": 63, "grid_total_kw": 175, "bess_mode": "PQ", "bess_status": "Idle", "soc": 67, "bess_r_a": 5, "bess_y_a": 5, "bess_b_a": 11, "bess_n_a": 10, "bess_r_kw": 0.03, "bess_y_kw": 0.1, "bess_b_kw": 2, "bess_power_kw": 2, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 171, "remarks": "Grid healthy, WAPDA feeding load, BESS is in idle condition due to 0 pv. "}, {"date": "2026-08-12", "time": "22:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 66, "bess_r_a": 306, "bess_y_a": 290, "bess_b_a": 293, "bess_n_a": 28, "bess_r_kw": 62, "bess_y_kw": 58, "bess_b_kw": 58, "bess_power_kw": 179, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 175, "remarks": "Grid unhealthy, BESS feeding load, BESS is in discharging condition. "}, {"date": "2026-08-12", "time": "23:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 239, "avr_y": 245, "avr_b": 248, "grid_r_a": 251, "grid_y_a": 247, "grid_b_a": 252, "grid_n_a": 15, "grid_r_kw": 54, "grid_y_kw": 54, "grid_b_kw": 56, "grid_total_kw": 165, "bess_mode": "PQ", "bess_status": "Idle", "soc": 34, "bess_r_a": 4, "bess_y_a": 4, "bess_b_a": 5, "bess_n_a": 4, "bess_r_kw": 0.2, "bess_y_kw": 0.2, "bess_b_kw": 0.3, "bess_power_kw": 0.8, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 160, "remarks": "Grid healthy, WAPDA feeding load, BESS is in idle condition due to 0 pv. "}, {"date": "2026-08-13", "time": "11:00", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Charging", "soc": 64, "bess_r_a": 192.5, "bess_y_a": 195.7, "bess_b_a": 198.1, "bess_n_a": 15, "bess_r_kw": 36, "bess_y_kw": 37, "bess_b_kw": 38, "bess_power_kw": 112, "solar_r_a": 308, "solar_y_a": 309, "solar_b_a": 308, "solar_r_kw": 61, "solar_y_kw": 61, "solar_b_kw": 61, "solar_power_kw": 319, "load_kw": 194, "remarks": "Grid Unhealthy, Solar feeding load, BESS is in charging condition by solar."}, {"date": "2026-08-13", "time": "12:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 75, "avr_y": 72, "avr_b": 88, "grid_r_a": 81, "grid_y_a": 81, "grid_b_a": 102, "grid_n_a": 12, "grid_r_kw": 6, "grid_y_kw": 10, "grid_b_kw": 10, "grid_total_kw": 27, "bess_mode": "PQ", "bess_status": "Charging", "soc": 75, "bess_r_a": 6, "bess_y_a": 5, "bess_b_a": 6, "bess_n_a": 3, "bess_r_kw": 1, "bess_y_kw": 1, "bess_b_kw": 1, "bess_power_kw": 3, "solar_r_a": 188, "solar_y_a": 187, "solar_b_a": 188, "solar_r_kw": 41, "solar_y_kw": 42, "solar_b_kw": 43, "solar_power_kw": 174, "load_kw": 205, "remarks": "Grid healthy, Solar and WAPDA feeding load, BESS is in charging condition by solar."}, {"date": "2026-08-13", "time": "17:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 82, "bess_r_a": 141, "bess_y_a": 139, "bess_b_a": 135, "bess_n_a": 15, "bess_r_kw": 31, "bess_y_kw": 30, "bess_b_kw": 29, "bess_power_kw": 90, "solar_r_a": 104, "solar_y_a": 104, "solar_b_a": 104, "solar_r_kw": 24, "solar_y_kw": 24, "solar_b_kw": 24, "solar_power_kw": 95, "load_kw": 185, "remarks": "Grid unhealthy, Solar and BESS feeding load, BESS is in discharging condition because of low PV."}, {"date": "2026-08-13", "time": "17:50", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 174, "avr_y": 188, "avr_b": 191, "grid_r_a": 190, "grid_y_a": 184, "grid_b_a": 205, "grid_n_a": 15, "grid_r_kw": 40, "grid_y_kw": 41, "grid_b_kw": 44, "grid_total_kw": 125, "bess_mode": "PQ", "bess_status": "Idle", "soc": 74, "bess_r_a": 6, "bess_y_a": 5, "bess_b_a": 6, "bess_n_a": 6, "bess_r_kw": 0.2, "bess_y_kw": 0.2, "bess_b_kw": 0.3, "bess_power_kw": 0.8, "solar_r_a": 58, "solar_y_a": 59, "solar_b_a": 58, "solar_r_kw": 13, "solar_y_kw": 13, "solar_b_kw": 13, "solar_power_kw": 53, "load_kw": 179, "remarks": "Grid healthy, Solar and WAPDA feeding load, BESS is in idle condition because of low PV."}, {"date": "2026-08-13", "time": "19:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 74, "bess_r_a": 260, "bess_y_a": 251, "bess_b_a": 250, "bess_n_a": 21, "bess_r_kw": 56, "bess_y_kw": 54, "bess_b_kw": 53, "bess_power_kw": 163, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 163, "remarks": "Grid unhealthy, BESS feeding load, BESS is in discharging condition. "}, {"date": "2026-08-13", "time": "20:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 240, "avr_y": 232, "avr_b": 238, "grid_r_a": 238, "grid_y_a": 239, "grid_b_a": 244, "grid_n_a": 10, "grid_r_kw": 55, "grid_y_kw": 55, "grid_b_kw": 58, "grid_total_kw": 168, "bess_mode": "PQ", "bess_status": "Idle", "soc": 51, "bess_r_a": 6, "bess_y_a": 5, "bess_b_a": 6, "bess_n_a": 5, "bess_r_kw": 0.2, "bess_y_kw": 0.2, "bess_b_kw": 0.3, "bess_power_kw": 0.8, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 164, "remarks": "Grid healthy, WAPDA feeding load, BESS is in idle condition due to 0 pv. "}, {"date": "2026-08-13", "time": "22:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 50, "bess_r_a": 253, "bess_y_a": 239, "bess_b_a": 240, "bess_n_a": 23, "bess_r_kw": 58, "bess_y_kw": 55, "bess_b_kw": 55, "bess_power_kw": 167, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 171, "remarks": "Grid unhealthy, BESS feeding load, BESS is in discharging condition and in last 5 min due to min SOC BESS shutdown and Gensets were running "}, {"date": "2026-08-13", "time": "23:25", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 234, "avr_y": 245, "avr_b": 273, "grid_r_a": 245, "grid_y_a": 260, "grid_b_a": 285, "grid_n_a": 13, "grid_r_kw": 54, "grid_y_kw": 57, "grid_b_kw": 62, "grid_total_kw": 173, "bess_mode": "PQ", "bess_status": "Idle", "soc": 19, "bess_r_a": 4, "bess_y_a": 4, "bess_b_a": 5, "bess_n_a": 4, "bess_r_kw": 0.2, "bess_y_kw": 0.2, "bess_b_kw": 0.3, "bess_power_kw": 0.8, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 173, "remarks": "Grid healthy, WAPDA feeding load, BESS is in idle condition due to 0 pv and minimum SOC "}, {"date": "2026-08-14", "time": "14:40", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 90, "bess_r_a": 169, "bess_y_a": 161, "bess_b_a": 160, "bess_n_a": 16, "bess_r_kw": 39, "bess_y_kw": 38, "bess_b_kw": 37, "bess_power_kw": 114, "solar_r_a": 41, "solar_y_a": 42, "solar_b_a": 41, "solar_r_kw": 10, "solar_y_kw": 10, "solar_b_kw": 12, "solar_power_kw": 35, "load_kw": 149, "remarks": "Grid unhealthy, Solar and BESS feeding load, BESS is in discharging condition due to low pv. "}, {"date": "2026-08-14", "time": "16:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 28, "avr_y": 17, "avr_b": 35, "grid_r_a": 34, "grid_y_a": 30, "grid_b_a": 44, "grid_n_a": 6, "grid_r_kw": 3, "grid_y_kw": 5, "grid_b_kw": 8, "grid_total_kw": 16, "bess_mode": "PQ", "bess_status": "Charging", "soc": 66, "bess_r_a": 32, "bess_y_a": 32, "bess_b_a": 33, "bess_n_a": 4, "bess_r_kw": 4, "bess_y_kw": 4, "bess_b_kw": 4, "bess_power_kw": 13, "solar_r_a": 189, "solar_y_a": 189, "solar_b_a": 189, "solar_r_kw": 42, "solar_y_kw": 42, "solar_b_kw": 44, "solar_power_kw": 152, "load_kw": 148, "remarks": "Grid healthy, Solar and WAPDA feeding load, BESS is in charging condition. "}, {"date": "2026-08-15", "time": "12:40", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Charging", "soc": 89, "bess_r_a": 107, "bess_y_a": 114, "bess_b_a": 114, "bess_n_a": 14, "bess_r_kw": 7, "bess_y_kw": 8, "bess_b_kw": 9, "bess_power_kw": 24, "solar_r_a": 248, "solar_y_a": 248, "solar_b_a": 248, "solar_r_kw": 56, "solar_y_kw": 57, "solar_b_kw": 57, "solar_power_kw": 221, "load_kw": 192, "remarks": "Grid unhealthy, Solar feeding load, BESS is in charging condition. "}, {"date": "2026-08-15", "time": "13:45", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 26, "avr_y": 22, "avr_b": 34, "grid_r_a": 322, "grid_y_a": 29, "grid_b_a": 39, "grid_n_a": 33, "grid_r_kw": 13, "grid_y_kw": 4, "grid_b_kw": 3, "grid_total_kw": 4, "bess_mode": "PQ", "bess_status": "Idle", "soc": 98, "bess_r_a": 5, "bess_y_a": 5, "bess_b_a": 5, "bess_n_a": 4, "bess_r_kw": 0.4, "bess_y_kw": 0.4, "bess_b_kw": 0.5, "bess_power_kw": 1.2, "solar_r_a": 173, "solar_y_a": 174, "solar_b_a": 173, "solar_r_kw": 38, "solar_y_kw": 38, "solar_b_kw": 39, "solar_power_kw": 169, "load_kw": 175, "remarks": "Grid healthy, Solar and WAPDA feeding load, BESS is in idle condition due to Max SOC. "}, {"date": "2026-08-15", "time": "15:45", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Charging", "soc": 96, "bess_r_a": 69, "bess_y_a": 76, "bess_b_a": 75, "bess_n_a": 13, "bess_r_kw": 0.8, "bess_y_kw": 1, "bess_b_kw": 1.2, "bess_power_kw": 3, "solar_r_a": 210, "solar_y_a": 210, "solar_b_a": 210, "solar_r_kw": 49, "solar_y_kw": 49, "solar_b_kw": 49, "solar_power_kw": 198, "load_kw": 193, "remarks": "Grid unhealthy, Solar feeding load, BESS is in charging condition. "}, {"date": "2026-08-15", "time": "17:00", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 96, "avr_y": 102, "avr_b": 109, "grid_r_a": 109, "grid_y_a": 117, "grid_b_a": 119, "grid_n_a": 15, "grid_r_kw": 21, "grid_y_kw": 23, "grid_b_kw": 24, "grid_total_kw": 69, "bess_mode": "PQ", "bess_status": "Idle", "soc": 98, "bess_r_a": 6, "bess_y_a": 5, "bess_b_a": 13, "bess_n_a": 11, "bess_r_kw": 0.4, "bess_y_kw": 0.4, "bess_b_kw": 2.5, "bess_power_kw": 3, "solar_r_a": 109, "solar_y_a": 110, "solar_b_a": 110, "solar_r_kw": 24, "solar_y_kw": 24, "solar_b_kw": 24, "solar_power_kw": 93, "load_kw": 173, "remarks": "Grid healthy, Solar and WAPDA feeding load, BESS is in idle condition due to Max SOC. "}, {"date": "2026-08-15", "time": "19:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 90, "bess_r_a": 282, "bess_y_a": 263, "bess_b_a": 269, "bess_n_a": 29, "bess_r_kw": 63, "bess_y_kw": 59, "bess_b_kw": 60, "bess_power_kw": 183, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 181, "remarks": "Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. "}, {"date": "2026-08-15", "time": "20:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 242, "avr_y": 244, "avr_b": 248, "grid_r_a": 248, "grid_y_a": 251, "grid_b_a": 258, "grid_n_a": 15, "grid_r_kw": 54, "grid_y_kw": 56, "grid_b_kw": 58, "grid_total_kw": 169, "bess_mode": "PQ", "bess_status": "Idle", "soc": 72, "bess_r_a": 6, "bess_y_a": 6, "bess_b_a": 7, "bess_n_a": 5, "bess_r_kw": 0.3, "bess_y_kw": 0.2, "bess_b_kw": 0.4, "bess_power_kw": 0.9, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 169, "remarks": "Grid healthy, WAPDA feeding load, BESS is in idle condition due to  0 PV."}, {"date": "2026-08-15", "time": "22:50", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 71, "bess_r_a": 280, "bess_y_a": 261, "bess_b_a": 261, "bess_n_a": 28, "bess_r_kw": 60, "bess_y_kw": 57, "bess_b_kw": 56, "bess_power_kw": 173, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 174, "remarks": "Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. "}, {"date": "2026-08-15", "time": "23:00", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 309, "avr_y": 308, "avr_b": 324, "grid_r_a": 318, "grid_y_a": 316, "grid_b_a": 329, "grid_n_a": 321, "grid_r_kw": 70, "grid_y_kw": 69, "grid_b_kw": 75, "grid_total_kw": 214, "bess_mode": "PQ", "bess_status": "Charging", "soc": 76, "bess_r_a": 45, "bess_y_a": 45, "bess_b_a": 54, "bess_n_a": 11, "bess_r_kw": 13, "bess_y_kw": 13, "bess_b_kw": 16, "bess_power_kw": 43, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 170, "remarks": "Grid healthy, WAPDA feeding load and  charge the BESS, BESS is in charging condition due to  0 PV."}, {"date": "2026-08-21", "time": "14:45", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 98, "bess_r_a": 48, "bess_y_a": 52, "bess_b_a": 50, "bess_n_a": 18, "bess_r_kw": 2, "bess_y_kw": 0.4, "bess_b_kw": 0.6, "bess_power_kw": 2, "solar_r_a": 183, "solar_y_a": 183, "solar_b_a": 183, "solar_r_kw": 42, "solar_y_kw": 42, "solar_b_kw": 42, "solar_power_kw": 179, "load_kw": 182, "remarks": "Grid unhealthy, Solar & BESS feeding load, BESS is in disharging condition due to bad weather. "}, {"date": "2026-08-21", "time": "17:00", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 157, "avr_y": 154, "avr_b": 168, "grid_r_a": 177, "grid_y_a": 186, "grid_b_a": 186, "grid_n_a": 10, "grid_r_kw": 35, "grid_y_kw": 38, "grid_b_kw": 38, "grid_total_kw": 110, "bess_mode": "PQ", "bess_status": "Idle", "soc": 89, "bess_r_a": 4, "bess_y_a": 4, "bess_b_a": 5, "bess_n_a": 3, "bess_r_kw": 0.3, "bess_y_kw": 0.3, "bess_b_kw": 0.5, "bess_power_kw": 1.1, "solar_r_a": 90, "solar_y_a": 90, "solar_b_a": 90, "solar_r_kw": 20, "solar_y_kw": 20, "solar_b_kw": 20, "solar_power_kw": 61, "load_kw": 143, "remarks": "Grid healthy, Solar & WAPDA feeding load, BESS is in idle condition. "}, {"date": "2026-08-21", "time": "17:20", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 88, "bess_r_a": 178, "bess_y_a": 177, "bess_b_a": 174, "bess_n_a": 16, "bess_r_kw": 40, "bess_y_kw": 40, "bess_b_kw": 39, "bess_power_kw": 120, "solar_r_a": 58, "solar_y_a": 58, "solar_b_a": 58, "solar_r_kw": 13, "solar_y_kw": 13, "solar_b_kw": 13, "solar_power_kw": 40, "load_kw": 159, "remarks": "Grid unhealthy, Solar & BESS feeding load, BESS is in disharging condition due to bad weather. "}, {"date": "2026-08-21", "time": "17:40", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 167, "avr_y": 167, "avr_b": 175, "grid_r_a": 183, "grid_y_a": 185, "grid_b_a": 193, "grid_n_a": 9, "grid_r_kw": 40, "grid_y_kw": 40, "grid_b_kw": 44, "grid_total_kw": 125, "bess_mode": "PQ", "bess_status": "Idle", "soc": 85, "bess_r_a": 4.6, "bess_y_a": 4.3, "bess_b_a": 5.3, "bess_n_a": 6, "bess_r_kw": 0.2, "bess_y_kw": 0.2, "bess_b_kw": 0.4, "bess_power_kw": 0.9, "solar_r_a": 42, "solar_y_a": 42, "solar_b_a": 42, "solar_r_kw": 9, "solar_y_kw": 9, "solar_b_kw": 9, "solar_power_kw": 28, "load_kw": 165, "remarks": "Grid healthy, Solar & WAPDA feeding load, BESS is in idle condition. "}, {"date": "2026-08-21", "time": "19:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 84, "bess_r_a": 273, "bess_y_a": 265, "bess_b_a": 266, "bess_n_a": 21, "bess_r_kw": 57, "bess_y_kw": 55, "bess_b_kw": 55, "bess_power_kw": 167, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 170, "remarks": "Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. "}, {"date": "2026-08-21", "time": "20:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 312, "avr_y": 299, "avr_b": 288, "grid_r_a": 332, "grid_y_a": 330, "grid_b_a": 341, "grid_n_a": 18, "grid_r_kw": 70, "grid_y_kw": 70, "grid_b_kw": 74, "grid_total_kw": 214, "bess_mode": "PQ", "bess_status": "Charging", "soc": 54, "bess_r_a": 80, "bess_y_a": 80, "bess_b_a": 87, "bess_n_a": 8, "bess_r_kw": 16, "bess_y_kw": 16, "bess_b_kw": 16, "bess_power_kw": 54, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 154, "remarks": "Grid healthy, WAPDA feeding load and Charge BESS, BESS is in charging condition as Night-time setpoint of 215 kW configured from 8:15 PM to 4:30 AM to charge the BESS from WAPDA at 50\u201360 kW, keeping it available for backup in case of a WAPDA outage and avoiding DG operation. Load demand will be deducted from the 215 kW setpoint, with the remaining power used for BESS charging. "}, {"date": "2026-08-21", "time": "22:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 71, "bess_r_a": 274, "bess_y_a": 258, "bess_b_a": 255, "bess_n_a": 21, "bess_r_kw": 60, "bess_y_kw": 55, "bess_b_kw": 55, "bess_power_kw": 177, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 177, "remarks": "Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. "}, {"date": "2026-08-21", "time": "23:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 324, "avr_y": 326, "avr_b": 326, "grid_r_a": 333, "grid_y_a": 332, "grid_b_a": 334, "grid_n_a": 15, "grid_r_kw": 71, "grid_y_kw": 71, "grid_b_kw": 74, "grid_total_kw": 216, "bess_mode": "PQ", "bess_status": "Charging", "soc": 42, "bess_r_a": 85, "bess_y_a": 84, "bess_b_a": 83, "bess_n_a": 4, "bess_r_kw": 17, "bess_y_kw": 18, "bess_b_kw": 19, "bess_power_kw": 57, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 155, "remarks": "Grid healthy, WAPDA feeding load and Charge BESS, BESS is in charging condition as Night-time setpoint of 215 kW configured from 8:15 PM to 4:30 AM to charge the BESS from WAPDA at 50\u201360 kW, keeping it available for backup in case of a WAPDA outage and avoiding DG operation. Load demand will be deducted from the 215 kW setpoint, with the remaining power used for BESS charging. "}, {"date": "2026-08-22", "time": "10:30", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Charging", "soc": 90, "bess_r_a": 92, "bess_y_a": 103, "bess_b_a": 101, "bess_n_a": 17, "bess_r_kw": 5, "bess_y_kw": 5, "bess_b_kw": 8, "bess_power_kw": 18, "solar_r_a": 205, "solar_y_a": 205, "solar_b_a": 205, "solar_r_kw": 46, "solar_y_kw": 46, "solar_b_kw": 47, "solar_power_kw": 139, "load_kw": 157, "remarks": "Grid Unhealthy, Solar feeding the Load & Charge the BESS, BESS is in Charging condition."}, {"date": "2026-08-22", "time": "12:45", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 60, "avr_y": 48, "avr_b": 57, "grid_r_a": 73, "grid_y_a": 60, "grid_b_a": 73, "grid_n_a": 21, "grid_r_kw": 3, "grid_y_kw": 1, "grid_b_kw": 2, "grid_total_kw": 6, "bess_mode": "PQ", "bess_status": "Idle", "soc": 98, "bess_r_a": 5.8, "bess_y_a": 5, "bess_b_a": 6, "bess_n_a": 5, "bess_r_kw": 0.4, "bess_y_kw": 0.4, "bess_b_kw": 0.5, "bess_power_kw": 1.3, "solar_r_a": 210, "solar_y_a": 205, "solar_b_a": 205, "solar_r_kw": 45, "solar_y_kw": 46, "solar_b_kw": 47, "solar_power_kw": 138, "load_kw": 146, "remarks": "Grid healthy, Solar & WAPDA feeding the load, BESS is in idle condition due to Max SOC"}, {"date": "2026-08-22", "time": "17:45", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 95, "bess_r_a": 260, "bess_y_a": 245, "bess_b_a": 244, "bess_n_a": 27, "bess_r_kw": 58, "bess_y_kw": 52, "bess_b_kw": 54, "bess_power_kw": 154, "solar_r_a": 28, "solar_y_a": 28, "solar_b_a": 28, "solar_r_kw": 6, "solar_y_kw": 6, "solar_b_kw": 6, "solar_power_kw": 19, "load_kw": 176, "remarks": "Grid Unhealthy, Solar & BESS feeding the load, BESS is in discahrging condition due to low PV."}, {"date": "2026-08-22", "time": "18:25", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 244, "avr_y": 252, "avr_b": 274, "grid_r_a": 270, "grid_y_a": 270, "grid_b_a": 295, "grid_n_a": 22, "grid_r_kw": 55, "grid_y_kw": 56, "grid_b_kw": 60, "grid_total_kw": 171, "bess_mode": "PQ", "bess_status": "Idle", "soc": 80, "bess_r_a": 0.2, "bess_y_a": 0.1, "bess_b_a": 1, "bess_n_a": 1.4, "bess_r_kw": 0.2, "bess_y_kw": 0.1, "bess_b_kw": 1, "bess_power_kw": 1.5, "solar_r_a": 18, "solar_y_a": 18, "solar_b_a": 18, "solar_r_kw": 2, "solar_y_kw": 2, "solar_b_kw": 3, "solar_power_kw": 6, "load_kw": 177, "remarks": "Grid healthy, Solar & WAPDA feeding the load, BESS is in idle condition. "}, {"date": "2026-08-22", "time": "19:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 78, "bess_r_a": 265, "bess_y_a": 239, "bess_b_a": 245, "bess_n_a": 36, "bess_r_kw": 58, "bess_y_kw": 52, "bess_b_kw": 53, "bess_power_kw": 163, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 157, "remarks": "Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. "}, {"date": "2026-08-22", "time": "20:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 312, "avr_y": 299, "avr_b": 288, "grid_r_a": 327, "grid_y_a": 325, "grid_b_a": 346, "grid_n_a": 20, "grid_r_kw": 71, "grid_y_kw": 70, "grid_b_kw": 76, "grid_total_kw": 217, "bess_mode": "PQ", "bess_status": "Charging", "soc": 50, "bess_r_a": 89, "bess_y_a": 82, "bess_b_a": 82, "bess_n_a": 6, "bess_r_kw": 18, "bess_y_kw": 18, "bess_b_kw": 20, "bess_power_kw": 56, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 161, "remarks": "Grid healthy, WAPDA feeding load and Charge BESS, BESS is in charging condition as Night-time setpoint of 215 kW configured from 8:15 PM to 4:30 AM to charge the BESS from WAPDA at 50\u201360 kW, keeping it available for backup in case of a WAPDA outage and avoiding DG operation. Load demand will be deducted from the 215 kW setpoint, with the remaining power used for BESS charging. "}, {"date": "2026-08-22", "time": "22:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 65, "bess_r_a": 274, "bess_y_a": 258, "bess_b_a": 255, "bess_n_a": 21, "bess_r_kw": 61, "bess_y_kw": 54, "bess_b_kw": 54, "bess_power_kw": 171, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 171, "remarks": "Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. "}, {"date": "2026-08-22", "time": "23:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 323, "avr_y": 327, "avr_b": 326, "grid_r_a": 332, "grid_y_a": 332, "grid_b_a": 334, "grid_n_a": 15, "grid_r_kw": 71, "grid_y_kw": 71, "grid_b_kw": 73, "grid_total_kw": 216, "bess_mode": "PQ", "bess_status": "Charging", "soc": 36, "bess_r_a": 85, "bess_y_a": 84, "bess_b_a": 83, "bess_n_a": 4, "bess_r_kw": 17, "bess_y_kw": 18, "bess_b_kw": 19, "bess_power_kw": 56, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 158, "remarks": "Grid healthy, WAPDA feeding load and Charge BESS, BESS is in charging condition as Night-time setpoint of 215 kW configured from 8:15 PM to 4:30 AM to charge the BESS from WAPDA at 50\u201360 kW, keeping it available for backup in case of a WAPDA outage and avoiding DG operation. Load demand will be deducted from the 215 kW setpoint, with the remaining power used for BESS charging. "}, {"date": "2026-08-23", "time": "11:25", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Idle", "soc": 98, "bess_r_a": 72, "bess_y_a": 77, "bess_b_a": 74, "bess_n_a": 16, "bess_r_kw": 0.2, "bess_y_kw": 0.6, "bess_b_kw": 0.2, "bess_power_kw": 1, "solar_r_a": 217, "solar_y_a": 217, "solar_b_a": 217, "solar_r_kw": 49, "solar_y_kw": 49, "solar_b_kw": 49, "solar_power_kw": 192, "load_kw": 195, "remarks": "Grid unhealthy, Solar feeding load, BESS is in idle condition due to Max SOC."}, {"date": "2026-08-23", "time": "12:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 70, "avr_y": 57, "avr_b": 70, "grid_r_a": 87, "grid_y_a": 70, "grid_b_a": 87, "grid_n_a": 7, "grid_r_kw": 0.4, "grid_y_kw": 0.2, "grid_b_kw": 3.6, "grid_total_kw": 4, "bess_mode": "PQ", "bess_status": "Idle", "soc": 98, "bess_r_a": 5, "bess_y_a": 5, "bess_b_a": 6, "bess_n_a": 5, "bess_r_kw": 0.4, "bess_y_kw": 0.4, "bess_b_kw": 0.4, "bess_power_kw": 1, "solar_r_a": 209, "solar_y_a": 209, "solar_b_a": 209, "solar_r_kw": 45, "solar_y_kw": 45, "solar_b_kw": 47, "solar_power_kw": 187, "load_kw": 191, "remarks": "Grid healthy, Solar & WAPDA feeding the load, BESS is in idle condition due to Max SOX"}, {"date": "2026-08-23", "time": "19:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 97, "bess_r_a": 260, "bess_y_a": 243, "bess_b_a": 245, "bess_n_a": 27, "bess_r_kw": 59, "bess_y_kw": 56, "bess_b_kw": 56, "bess_power_kw": 171, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 171, "remarks": "Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. "}, {"date": "2026-08-23", "time": "20:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 321, "avr_y": 324, "avr_b": 324, "grid_r_a": 329, "grid_y_a": 321, "grid_b_a": 320, "grid_n_a": 17, "grid_r_kw": 71, "grid_y_kw": 72, "grid_b_kw": 72, "grid_total_kw": 215, "bess_mode": "PQ", "bess_status": "Charging", "soc": 70, "bess_r_a": 4, "bess_y_a": 4, "bess_b_a": 11, "bess_n_a": 9, "bess_r_kw": 21, "bess_y_kw": 21, "bess_b_kw": 23, "bess_power_kw": 66, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 169, "remarks": "Grid healthy, WAPDA feeding load and Charge BESS, BESS is in charging condition as Night-time setpoint of 215 kW configured from 8:15 PM to 4:30 AM to charge the BESS from WAPDA at 50\u201360 kW, keeping it available for backup in case of a WAPDA outage and avoiding DG operation. Load demand will be deducted from the 215 kW setpoint, with the remaining power used for BESS charging. "}, {"date": "2026-08-23", "time": "22:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 86, "bess_r_a": 245, "bess_y_a": 228, "bess_b_a": 227, "bess_n_a": 22, "bess_r_kw": 56, "bess_y_kw": 53, "bess_b_kw": 52, "bess_power_kw": 171, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 171, "remarks": "Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. "}, {"date": "2026-08-23", "time": "23:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 322, "avr_y": 325, "avr_b": 326, "grid_r_a": 331, "grid_y_a": 324, "grid_b_a": 321, "grid_n_a": 20, "grid_r_kw": 72, "grid_y_kw": 72, "grid_b_kw": 72, "grid_total_kw": 216, "bess_mode": "PQ", "bess_status": "Charging", "soc": 57, "bess_r_a": 96, "bess_y_a": 96, "bess_b_a": 97, "bess_n_a": 5, "bess_r_kw": 21, "bess_y_kw": 21, "bess_b_kw": 22, "bess_power_kw": 64, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 159, "remarks": "Grid healthy, WAPDA feeding load and Charge BESS, BESS is in charging condition as Night-time setpoint of 215 kW configured from 8:15 PM to 4:30 AM to charge the BESS from WAPDA at 50\u201360 kW, keeping it available for backup in case of a WAPDA outage and avoiding DG operation. Load demand will be deducted from the 215 kW setpoint, with the remaining power used for BESS charging. "}, {"date": "2026-08-24", "time": "11:55", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Idle", "soc": 98, "bess_r_a": 77, "bess_y_a": 81, "bess_b_a": 81, "bess_n_a": 21, "bess_r_kw": 0.5, "bess_y_kw": 0.1, "bess_b_kw": 4, "bess_power_kw": 5, "solar_r_a": 222, "solar_y_a": 223, "solar_b_a": 226, "solar_r_kw": 70, "solar_y_kw": 71, "solar_b_kw": 70, "solar_power_kw": 211, "load_kw": 206, "remarks": "Grid unhealthy, Solar feeding load, BESS is in idle condition due to Max SOC."}, {"date": "2026-08-24", "time": "14:50", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 43, "avr_y": 34, "avr_b": 44, "grid_r_a": 55, "grid_y_a": 46, "grid_b_a": 57, "grid_n_a": 9, "grid_r_kw": 2, "grid_y_kw": 2, "grid_b_kw": 5, "grid_total_kw": 9, "bess_mode": "PQ", "bess_status": "Charging", "soc": 97, "bess_r_a": 5, "bess_y_a": 4, "bess_b_a": 7, "bess_n_a": 5, "bess_r_kw": 0.4, "bess_y_kw": 0.4, "bess_b_kw": 1, "bess_power_kw": 2, "solar_r_a": 203, "solar_y_a": 204, "solar_b_a": 203, "solar_r_kw": 44, "solar_y_kw": 59, "solar_b_kw": 58, "solar_power_kw": 176, "load_kw": 178, "remarks": "Grid healthy, Solar & WAPDA feeding the load and charge the BESS, BESS is in charging condition ."}, {"date": "2026-08-24", "time": "19:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 98, "bess_r_a": 260, "bess_y_a": 251, "bess_b_a": 246, "bess_n_a": 22, "bess_r_kw": 55, "bess_y_kw": 53, "bess_b_kw": 55, "bess_power_kw": 167, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 167, "remarks": "Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. "}, {"date": "2026-08-24", "time": "20:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 228, "avr_y": 233, "avr_b": 254, "grid_r_a": 235, "grid_y_a": 241, "grid_b_a": 264, "grid_n_a": 11, "grid_r_kw": 47, "grid_y_kw": 50, "grid_b_kw": 55, "grid_total_kw": 152, "bess_mode": "PQ", "bess_status": "Idle", "soc": 71, "bess_r_a": 4, "bess_y_a": 4, "bess_b_a": 9, "bess_n_a": 7, "bess_r_kw": 0.3, "bess_y_kw": 0.2, "bess_b_kw": 1, "bess_power_kw": 2, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 153, "remarks": "Grid healthy, WAPDA feeding load, BESS is in idle condition due to 0PV.  "}, {"date": "2026-08-24", "time": "22:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 70, "bess_r_a": 309, "bess_y_a": 298, "bess_b_a": 294, "bess_n_a": 22, "bess_r_kw": 57, "bess_y_kw": 55, "bess_b_kw": 52, "bess_power_kw": 165, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 166, "remarks": "Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. "}, {"date": "2026-08-24", "time": "23:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 291, "avr_y": 287, "avr_b": 303, "grid_r_a": 302, "grid_y_a": 304, "grid_b_a": 315, "grid_n_a": 15, "grid_r_kw": 61, "grid_y_kw": 62, "grid_b_kw": 65, "grid_total_kw": 188, "bess_mode": "PQ", "bess_status": "Charging", "soc": 41, "bess_r_a": 59, "bess_y_a": 59, "bess_b_a": 60, "bess_n_a": 5, "bess_r_kw": 12, "bess_y_kw": 13, "bess_b_kw": 13, "bess_power_kw": 39, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 159, "remarks": "Grid healthy, WAPDA feeding load and Charge BESS, BESS is in charging condition as Night-time setpoint of 190 kW configured from 10:20 PM to 4:30 AM to charge the BESS from WAPDA at 20-30 kW, keeping it available for backup in case of a WAPDA outage and avoiding DG operation. Load demand will be deducted from the 190 kW setpoint, with the remaining power used for BESS charging. "}, {"date": "2026-08-25", "time": "11:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Charging", "soc": 87, "bess_r_a": 59, "bess_y_a": 59, "bess_b_a": 60, "bess_n_a": 5, "bess_r_kw": 12, "bess_y_kw": 12, "bess_b_kw": 13, "bess_power_kw": 39, "solar_r_a": 222, "solar_y_a": 223, "solar_b_a": 222, "solar_r_kw": 75, "solar_y_kw": 76, "solar_b_kw": 76, "solar_power_kw": 225, "load_kw": 191, "remarks": "Grid unhealthy, Solar feeding load & Charge the BESS, BESS is in Charging condition."}, {"date": "2026-08-25", "time": "13:00", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 34, "avr_y": 44, "avr_b": 48, "grid_r_a": 45, "grid_y_a": 45, "grid_b_a": 51, "grid_n_a": 24, "grid_r_kw": 2, "grid_y_kw": 1, "grid_b_kw": 2, "grid_total_kw": 5, "bess_mode": "PQ", "bess_status": "Idle", "soc": 98, "bess_r_a": 8, "bess_y_a": 8, "bess_b_a": 9, "bess_n_a": 5, "bess_r_kw": 0.3, "bess_y_kw": 0.4, "bess_b_kw": 0.2, "bess_power_kw": 1, "solar_r_a": 184, "solar_y_a": 184, "solar_b_a": 184, "solar_r_kw": 53, "solar_y_kw": 52, "solar_b_kw": 53, "solar_power_kw": 157, "load_kw": 163, "remarks": "Grid healthy, Solar & WAPDA feeding the load, BESS is in idle condition due to MAX SOC."}, {"date": "2026-08-25", "time": "19:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 98, "bess_r_a": 265, "bess_y_a": 244, "bess_b_a": 250, "bess_n_a": 31, "bess_r_kw": 58, "bess_y_kw": 53, "bess_b_kw": 55, "bess_power_kw": 166, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 165, "remarks": "Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. "}, {"date": "2026-08-25", "time": "20:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 239, "avr_y": 222, "avr_b": 238, "grid_r_a": 260, "grid_y_a": 243, "grid_b_a": 263, "grid_n_a": 19, "grid_r_kw": 52, "grid_y_kw": 49, "grid_b_kw": 53, "grid_total_kw": 154, "bess_mode": "PQ", "bess_status": "Idle", "soc": 68, "bess_r_a": 2, "bess_y_a": 5, "bess_b_a": 5, "bess_n_a": 7, "bess_r_kw": 0.9, "bess_y_kw": 0.2, "bess_b_kw": 0.1, "bess_power_kw": 1.5, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 153, "remarks": "Grid healthy, WAPDA feeding load, BESS is in idle condition due to 0PV.  "}, {"date": "2026-08-25", "time": "22:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 69, "bess_r_a": 288, "bess_y_a": 265, "bess_b_a": 265, "bess_n_a": 31, "bess_r_kw": 59, "bess_y_kw": 53, "bess_b_kw": 54, "bess_power_kw": 163, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 166, "remarks": "Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. "}, {"date": "2026-08-25", "time": "23:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 306, "avr_y": 286, "avr_b": 293, "grid_r_a": 297, "grid_y_a": 314, "grid_b_a": 300, "grid_n_a": 24, "grid_r_kw": 64, "grid_y_kw": 63, "grid_b_kw": 66, "grid_total_kw": 193, "bess_mode": "PQ", "bess_status": "Charging", "soc": 40, "bess_r_a": 52, "bess_y_a": 52, "bess_b_a": 53, "bess_n_a": 4, "bess_r_kw": 9, "bess_y_kw": 9, "bess_b_kw": 10, "bess_power_kw": 29, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 159, "remarks": "Grid healthy, WAPDA feeding load and Charge BESS, BESS is in charging condition as Night-time setpoint of 190 kW configured from 10:20 PM to 4:30 AM to charge the BESS from WAPDA at 20-30 kW, keeping it available for backup in case of a WAPDA outage and avoiding DG operation. Load demand will be deducted from the 190 kW setpoint, with the remaining power used for BESS charging. "}, {"date": "2026-08-26", "time": "22:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 98, "bess_r_a": 261, "bess_y_a": 260, "bess_b_a": 273, "bess_n_a": 23, "bess_r_kw": 62, "bess_y_kw": 59, "bess_b_kw": 59, "bess_power_kw": 179, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 179, "remarks": "Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. "}, {"date": "2026-08-26", "time": "23:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 234, "avr_y": 233, "avr_b": 239, "grid_r_a": 235, "grid_y_a": 249, "grid_b_a": 259, "grid_n_a": 9, "grid_r_kw": 49, "grid_y_kw": 53, "grid_b_kw": 56, "grid_total_kw": 158, "bess_mode": "PQ", "bess_status": "Idle", "soc": 70, "bess_r_a": 4, "bess_y_a": 4, "bess_b_a": 10, "bess_n_a": 8, "bess_r_kw": 0.2, "bess_y_kw": 1, "bess_b_kw": 2, "bess_power_kw": 2, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 159, "remarks": "Grid healthy, WAPDA feeding load, BESS is in idle condition. "}, {"date": "2026-08-27", "time": "17:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 98, "bess_r_a": 185, "bess_y_a": 182, "bess_b_a": 188, "bess_n_a": 16, "bess_r_kw": 41, "bess_y_kw": 40, "bess_b_kw": 41, "bess_power_kw": 121, "solar_r_a": 60, "solar_y_a": 60, "solar_b_a": 61, "solar_r_kw": 13, "solar_y_kw": 13, "solar_b_kw": 13, "solar_power_kw": 39, "load_kw": 161, "remarks": "Grid unhealthy, BESS & Solar feeding load, BESS is in Discharging condition."}, {"date": "2026-08-27", "time": "17:30", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 185, "avr_y": 198, "avr_b": 228, "grid_r_a": 292, "grid_y_a": 211, "grid_b_a": 227, "grid_n_a": 26, "grid_r_kw": 42, "grid_y_kw": 44, "grid_b_kw": 50, "grid_total_kw": 136, "bess_mode": "PQ", "bess_status": "Idle", "soc": 92, "bess_r_a": 6, "bess_y_a": 6, "bess_b_a": 5, "bess_n_a": 5, "bess_r_kw": 0.2, "bess_y_kw": 0.2, "bess_b_kw": 0.2, "bess_power_kw": 1, "solar_r_a": 48, "solar_y_a": 49, "solar_b_a": 48, "solar_r_kw": 10, "solar_y_kw": 10, "solar_b_kw": 11, "solar_power_kw": 31, "load_kw": 167, "remarks": "Grid healthy, Solar & WAPDA feeding the load, BESS is in idle condition due to  Low PV."}, {"date": "2026-08-27", "time": "19:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 91, "bess_r_a": 266, "bess_y_a": 243, "bess_b_a": 250, "bess_n_a": 32, "bess_r_kw": 61, "bess_y_kw": 66, "bess_b_kw": 52, "bess_power_kw": 179, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 179, "remarks": "Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. "}, {"date": "2026-08-27", "time": "20:30", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 256, "avr_y": 250, "avr_b": 268, "grid_r_a": 250, "grid_y_a": 253, "grid_b_a": 268, "grid_n_a": 16, "grid_r_kw": 53, "grid_y_kw": 54, "grid_b_kw": 59, "grid_total_kw": 166, "bess_mode": "PQ", "bess_status": "Idle", "soc": 58, "bess_r_a": 6, "bess_y_a": 6, "bess_b_a": 9, "bess_n_a": 8, "bess_r_kw": 0.2, "bess_y_kw": 0.1, "bess_b_kw": 1.5, "bess_power_kw": 2, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 161, "remarks": "Grid healthy, WAPDA feeding load, BESS is in idle condition due to 0PV.  "}, {"date": "2026-08-27", "time": "22:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 58, "bess_r_a": 270, "bess_y_a": 255, "bess_b_a": 256, "bess_n_a": 31, "bess_r_kw": 58, "bess_y_kw": 54, "bess_b_kw": 55, "bess_power_kw": 169, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 169, "remarks": "Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. "}, {"date": "2026-08-27", "time": "23:20", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 233, "avr_y": 242, "avr_b": 239, "grid_r_a": 242, "grid_y_a": 249, "grid_b_a": 250, "grid_n_a": 16, "grid_r_kw": 49, "grid_y_kw": 51, "grid_b_kw": 53, "grid_total_kw": 153, "bess_mode": "PQ", "bess_status": "Idle", "soc": 28, "bess_r_a": 4, "bess_y_a": 4, "bess_b_a": 6, "bess_n_a": 5, "bess_r_kw": 0.2, "bess_y_kw": 0.2, "bess_b_kw": 0.7, "bess_power_kw": 1, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 153, "remarks": "Grid healthy, WAPDA feeding load, BESS is in idle condition due to 0PV.  "}, {"date": "2026-08-28", "time": "16:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 98, "bess_r_a": 270, "bess_y_a": 270, "bess_b_a": 263, "bess_n_a": 16, "bess_r_kw": 44, "bess_y_kw": 40, "bess_b_kw": 30, "bess_power_kw": 115, "solar_r_a": 66, "solar_y_a": 67, "solar_b_a": 66, "solar_r_kw": 23, "solar_y_kw": 22, "solar_b_kw": 22, "solar_power_kw": 67, "load_kw": 184, "remarks": "Grid unhealthy, BESS & Solar feeding load, BESS is in Discharging condition due to low PV."}, {"date": "2026-08-28", "time": "16:25", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 200, "avr_y": 198, "avr_b": 210, "grid_r_a": 206, "grid_y_a": 200, "grid_b_a": 211, "grid_n_a": 8, "grid_r_kw": 36, "grid_y_kw": 39, "grid_b_kw": 39, "grid_total_kw": 114, "bess_mode": "PQ", "bess_status": "Idle", "soc": 96, "bess_r_a": 5, "bess_y_a": 4, "bess_b_a": 10, "bess_n_a": 8, "bess_r_kw": 0.3, "bess_y_kw": 0.3, "bess_b_kw": 1, "bess_power_kw": 2, "solar_r_a": 64, "solar_y_a": 64, "solar_b_a": 64, "solar_r_kw": 14, "solar_y_kw": 14, "solar_b_kw": 14, "solar_power_kw": 43, "load_kw": 159, "remarks": "Grid healthy, Solar & WAPDA feeding the load, BESS is in idle condition due to low PV."}, {"date": "2026-08-28", "time": "22:15", "grid_avr_status": "Not Available", "grid_avr_healthy": "No", "avr_r": 0, "avr_y": 0, "avr_b": 0, "grid_r_a": 0, "grid_y_a": 0, "grid_b_a": 0, "grid_n_a": 0, "grid_r_kw": 0, "grid_y_kw": 0, "grid_b_kw": 0, "grid_total_kw": 0, "bess_mode": "VSG", "bess_status": "Discharging", "soc": 92, "bess_r_a": 273, "bess_y_a": 249, "bess_b_a": 268, "bess_n_a": 32, "bess_r_kw": 60, "bess_y_kw": 55, "bess_b_kw": 55, "bess_power_kw": 171, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 171, "remarks": "Grid unhealthy, BESS feeding load, BESS is in disharging condition due to 0 PV. "}, {"date": "2026-08-28", "time": "23:15", "grid_avr_status": "Available", "grid_avr_healthy": "Yes", "avr_r": 252, "avr_y": 243, "avr_b": 252, "grid_r_a": 251, "grid_y_a": 250, "grid_b_a": 264, "grid_n_a": 17, "grid_r_kw": 52, "grid_y_kw": 53, "grid_b_kw": 57, "grid_total_kw": 162, "bess_mode": "PQ", "bess_status": "Idle", "soc": 63, "bess_r_a": 6, "bess_y_a": 6, "bess_b_a": 9, "bess_n_a": 8, "bess_r_kw": 0.2, "bess_y_kw": 0.2, "bess_b_kw": 1, "bess_power_kw": 2, "solar_r_a": 2, "solar_y_a": 2, "solar_b_a": 2, "solar_r_kw": 0, "solar_y_kw": 0, "solar_b_kw": 0, "solar_power_kw": 0, "load_kw": 163, "remarks": "Grid healthy, WAPDA feeding load, BESS is in idle condition due to 0PV.  "}];
+const STORAGE_KEY = 'reading_overrides';
+const UNBALANCE_THRESHOLD = 15;
+
+let RAW = [];
+let BY_DATE = {};
+let DATES = [];
+let currentSide = 'grid';
+let OVERRIDES = {};      // key(date|time) -> record fields, or {_deleted:true} to remove an original row
+let editingKey = null;   // key of the record currently being edited (its ORIGINAL date|time), or null when adding new
+
+/* ---------------- utils ---------------- */
+function timeToMinutes(t){ if(!t) return 0; const p=t.split(':').map(Number); return (p[0]||0)*60+(p[1]||0); }
+function fmtHrs(h){ const hh=Math.floor(h), mm=Math.round((h-hh)*60); return hh+'h '+String(mm).padStart(2,'0')+'m'; }
+function socColor(soc){ soc=Number(soc)||0; if(soc<20) return 'var(--red)'; if(soc<40) return 'var(--amber)'; return 'var(--green)'; }
+function recordKey(r){ return r.date+'|'+r.time; }
+function unbalancePct(r,y,b,minAvg){
+  minAvg = minAvg===undefined?3:minAvg;
+  r=Number(r)||0; y=Number(y)||0; b=Number(b)||0;
+  const avg=(r+y+b)/3;
+  if(avg<minAvg) return 0;
+  const maxDev=Math.max(Math.abs(r-avg),Math.abs(y-avg),Math.abs(b-avg));
+  return (maxDev/avg)*100;
+}
+
+function processRecords(rows){
+  const clean = rows.filter(r=>r.date && r.time);
+  clean.sort((a,b)=>(a.date+' '+a.time).localeCompare(b.date+' '+b.time));
+  clean.forEach(r=>{
+    r.minutes = timeToMinutes(r.time);
+    r.dt = r.date+' '+r.time;
+    r.gridUnbalance = r.grid_avr_status==='Available' ? unbalancePct(r.grid_r_a,r.grid_y_a,r.grid_b_a,5) : 0;
+    r.bessUnbalance = unbalancePct(r.bess_r_a,r.bess_y_a,r.bess_b_a,15);
+    r.solarUnbalance = unbalancePct(r.solar_r_a,r.solar_y_a,r.solar_b_a,15);
+    r.gridFaultFlag = (r.grid_avr_status==='Available' && String(r.grid_avr_healthy).toLowerCase()==='no');
+    r.unbalanceFlag = r.gridUnbalance>UNBALANCE_THRESHOLD || r.bessUnbalance>UNBALANCE_THRESHOLD || r.solarUnbalance>UNBALANCE_THRESHOLD;
+    r.anomaly = r.gridFaultFlag || r.unbalanceFlag;
+  });
+  return clean;
+}
+
+function mergeWithOverrides(embeddedRows, overrides){
+  const map = {};
+  const embeddedKeySet = new Set();
+  embeddedRows.forEach(r=>{
+    const k = recordKey(r);
+    embeddedKeySet.add(k);
+    map[k] = Object.assign({}, r);
+  });
+  Object.keys(overrides).forEach(k=>{
+    const ov = overrides[k];
+    if(ov && ov._deleted){ delete map[k]; return; }
+    if(!ov) return;
+    const rec = Object.assign({}, ov);
+    const newKey = recordKey(rec);
+    if(embeddedKeySet.has(k) && newKey === k){
+      rec._edited = true;
+    } else {
+      rec._added = true;
+      // if original slot was moved (date/time changed during edit), the old slot's
+      // deletion is handled separately via a _deleted override at the old key.
+    }
+    map[newKey] = rec;
+  });
+  return Object.values(map);
+}
+
+function buildIndexes(){
+  BY_DATE={}; RAW.forEach(r=>{ (BY_DATE[r.date]=BY_DATE[r.date]||[]).push(r); });
+  DATES = Object.keys(BY_DATE).sort();
+}
+
+function dailyStats(dateRecords){
+  const sorted=[...dateRecords].sort((a,b)=>a.minutes-b.minutes);
+  let notAvailMin=0, switches=0, peakLoad=-Infinity, minSOC=Infinity, maxSOC=-Infinity, peakSolar=0, alerts=0;
+  let minSOCTime='', maxSOCTime='';
+  sorted.forEach((r,i)=>{
+    const nextMin=(i+1<sorted.length)?sorted[i+1].minutes:24*60;
+    const dur=Math.max(0,nextMin-r.minutes);
+    if(r.grid_avr_status==='Not Available') notAvailMin+=dur;
+    if(i>0 && r.bess_mode!==sorted[i-1].bess_mode) switches++;
+    peakLoad=Math.max(peakLoad, Number(r.load_kw)||0);
+    if((Number(r.soc)||0) < minSOC){ minSOC=Number(r.soc)||0; minSOCTime=r.time; }
+    if((Number(r.soc)||0) > maxSOC){ maxSOC=Number(r.soc)||0; maxSOCTime=r.time; }
+    peakSolar=Math.max(peakSolar, Number(r.solar_power_kw)||0);
+    if(r.anomaly) alerts++;
+  });
+  return {
+    downtimeHrs: notAvailMin/60, switches,
+    peakLoad: peakLoad===-Infinity?0:peakLoad,
+    minSOC: minSOC===Infinity?0:minSOC, maxSOC: maxSOC===-Infinity?0:maxSOC,
+    minSOCTime, maxSOCTime, peakSolar, alerts, count: sorted.length
+  };
+}
+
+/* ---------------- point detail tooltip ---------------- */
+function fmtNum(v){ v = Number(v); if(Number.isNaN(v)) return v; return (Math.abs(v)<10 && v%1!==0) ? v.toFixed(2) : (v%1!==0 ? v.toFixed(1) : v); }
+
+function showPointDetail(rec, evt){
+  if(!rec) return;
+  const tip = document.getElementById('pointTooltip');
+  const gridLed = rec.grid_avr_status==='Available' ? '<span class="led on"></span>Available' : '<span class="led off"></span>Not Available';
+  const modeTag = rec.bess_mode==='PQ' ? '<span class="tag tag-pq">PQ</span>' : '<span class="tag tag-vsg">VSG</span>';
+  tip.innerHTML = `
+    <span class="pt-close" id="ptCloseBtn">✕</span>
+    <div class="pt-time">${rec.date} · ${rec.time}</div>
+    <div class="pt-row"><span>Grid / AVR</span><b>${gridLed}</b></div>
+    <div class="pt-row"><span>BESS Mode</span><b>${modeTag}</b></div>
+    <div class="pt-row"><span>BESS Status</span><b>${rec.bess_status}</b></div>
+    <div class="pt-row"><span>SOC</span><b>${rec.soc}%</b></div>
+    <div class="pt-row"><span>Grid Power</span><b>${fmtNum(rec.grid_total_kw)} kW</b></div>
+    <div class="pt-row"><span>BESS Power</span><b>${fmtNum(rec.bess_power_kw)} kW</b></div>
+    <div class="pt-row"><span>Solar Power</span><b>${fmtNum(rec.solar_power_kw)} kW</b></div>
+    <div class="pt-row"><span>Load</span><b>${fmtNum(rec.load_kw)} kW</b></div>
+    <div class="pt-row"><span>Grid R/Y/B (A)</span><b>${rec.grid_r_a}/${rec.grid_y_a}/${rec.grid_b_a}</b></div>
+    <div class="pt-row"><span>BESS R/Y/B (A)</span><b>${rec.bess_r_a}/${rec.bess_y_a}/${rec.bess_b_a}</b></div>
+    <div class="pt-row"><span>Solar R/Y/B (A)</span><b>${rec.solar_r_a}/${rec.solar_y_a}/${rec.solar_b_a}</b></div>
+    ${rec.remarks ? `<div class="pt-remarks">${rec.remarks}</div>` : ''}
+  `;
+  tip.style.display = 'block';
+  const pad = 14;
+  let x = evt.clientX + pad, y = evt.clientY + pad;
+  const rect = tip.getBoundingClientRect();
+  if(x + rect.width > window.innerWidth - 10) x = evt.clientX - rect.width - pad;
+  if(y + rect.height > window.innerHeight - 10) y = evt.clientY - rect.height - pad;
+  tip.style.left = Math.max(10,x)+'px';
+  tip.style.top = Math.max(10,y)+'px';
+  document.getElementById('ptCloseBtn').addEventListener('click', (e)=>{ e.stopPropagation(); hidePointDetail(); });
+}
+function hidePointDetail(){
+  const tip = document.getElementById('pointTooltip');
+  if(tip) tip.style.display = 'none';
+}
+document.addEventListener('click', (e)=>{
+  const tip = document.getElementById('pointTooltip');
+  if(tip && tip.style.display==='block' && !tip.contains(e.target) && !e.target.closest('.chart-svg')){
+    hidePointDetail();
+  }
+});
+
+function buildTransitionEvents(){
+  const events=[];
+  for(let i=1;i<RAW.length;i++){
+    const prev=RAW[i-1], cur=RAW[i];
+    if(cur.grid_avr_status !== prev.grid_avr_status){
+      const lost = cur.grid_avr_status === 'Not Available';
+      events.push({
+        dt: cur.dt,
+        badge: lost ? 'VSG' : 'PQ',
+        badgeClass: lost ? 'badge-vsg' : 'badge-pq',
+        desc: lost
+          ? `Grid lost → BESS switched PQ → VSG (grid-forming), SOC was ${cur.soc}%.`
+          : `Grid restored → BESS switched VSG → PQ (grid-following), SOC was ${cur.soc}%.`
+      });
+    }
+  }
+  return events.reverse();
+}
+
+/* ---------------- SVG chart engine (no external libs) ---------------- */
+function svgEl(tag, attrs){
+  const s='http://www.w3.org/2000/svg';
+  const e=document.createElementNS(s, tag);
+  for(const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+function renderLineChart(containerId, {labels, series, yLabel, height=260, area=false, zeroLine=false, records=null}){
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  const width = Math.max(container.clientWidth || 640, 320);
+  const padL=44, padR=14, padT=14, padB=28;
+  const plotW = width-padL-padR, plotH = height-padT-padB;
+
+  let allVals = [];
+  series.forEach(s=> s.data.forEach(v=> allVals.push(Number(v)||0)));
+  if(allVals.length===0) allVals=[0,1];
+  let min = Math.min(...allVals), max = Math.max(...allVals);
+  if(zeroLine){ min=Math.min(min,0); max=Math.max(max,0); }
+  if(min===max){ min-=1; max+=1; }
+  const pad = (max-min)*0.08;
+  min -= pad; max += pad;
+
+  const svg = svgEl('svg', {viewBox:`0 0 ${width} ${height}`, class:'chart-svg', style:'width:100%;height:'+height+'px;display:block;'});
+
+  const yTicks = 4;
+  for(let i=0;i<=yTicks;i++){
+    const v = min + (max-min)*i/yTicks;
+    const y = padT + plotH - ((v-min)/(max-min))*plotH;
+    svg.appendChild(svgEl('line',{x1:padL,x2:width-padR,y1:y,y2:y,class:'gridline'}));
+    const t = svgEl('text',{x:padL-6,y:y+3,'text-anchor':'end'});
+    t.textContent = (Math.abs(v)>=100? Math.round(v): Math.round(v*10)/10);
+    svg.appendChild(t);
+  }
+  if(yLabel){
+    const t = svgEl('text',{x:8,y:padT+2,'text-anchor':'start',fill:'#4d5862'});
+    t.textContent = yLabel;
+    svg.appendChild(t);
+  }
+
+  const n = labels.length;
+  const xStep = n>1 ? plotW/(n-1) : 0;
+  const xLabelEvery = Math.max(1, Math.ceil(n/9));
+  labels.forEach((lb,i)=>{
+    if(i % xLabelEvery !== 0 && i !== n-1) return;
+    const x = padL + i*xStep;
+    const t = svgEl('text',{x:x,y:height-8,'text-anchor':'middle'});
+    t.textContent = lb;
+    svg.appendChild(t);
+  });
+
+  svg.appendChild(svgEl('line',{x1:padL,x2:width-padR,y1:padT+plotH,y2:padT+plotH,class:'axisline'}));
+
+  series.forEach(s=>{
+    const pts = s.data.map((v,i)=>{
+      const x = padL + i*xStep;
+      const y = padT + plotH - ((Number(v)||0 - min)/(max-min))*plotH;
+      return [x,y];
+    });
+    if(area && pts.length>0){
+      const baseline = padT+plotH;
+      const path = 'M'+pts.map(p=>p.join(',')).join(' L') + ` L${pts[pts.length-1][0]},${baseline} L${pts[0][0]},${baseline} Z`;
+      svg.appendChild(svgEl('path',{d:path, fill:s.color, 'fill-opacity':0.15, stroke:'none'}));
+    }
+    if(pts.length>1){
+      const path = 'M'+pts.map(p=>p.join(',')).join(' L');
+      svg.appendChild(svgEl('path',{d:path, fill:'none', stroke:s.color, 'stroke-width':2, 'stroke-linejoin':'round'}));
+    }
+    pts.forEach((p,i)=>{
+      const c = svgEl('circle',{cx:p[0],cy:p[1],r:2.4,fill:s.color});
+      const title = svgEl('title',{});
+      title.textContent = `${labels[i]} — ${s.name}: ${s.data[i]}`;
+      c.appendChild(title);
+      if(records && records[i]){
+        c.addEventListener('click', (evt)=>{ evt.stopPropagation(); showPointDetail(records[i], evt); });
+      }
+      svg.appendChild(c);
+    });
+  });
+
+  container.appendChild(svg);
+
+  if(series.length>1){
+    const legend = document.createElement('div');
+    legend.className='legend-row';
+    legend.style.marginTop='6px';
+    legend.innerHTML = series.map(s=>`<span><span class="sw" style="background:${s.color}"></span>${s.name}</span>`).join('');
+    container.appendChild(legend);
+  }
+}
+
+function renderBarChart(containerId, {labels, values, color, height=230, unit='', onBarClick=null}){
+  const container = document.getElementById(containerId);
+  container.innerHTML='';
+  const width = Math.max(container.clientWidth || 640, 320);
+  const padL=40, padR=14, padT=14, padB=28;
+  const plotW = width-padL-padR, plotH = height-padT-padB;
+  const max = Math.max(...values, 1);
+  const svg = svgEl('svg',{viewBox:`0 0 ${width} ${height}`, class:'chart-svg', style:'width:100%;height:'+height+'px;display:block;'});
+
+  const yTicks=4;
+  for(let i=0;i<=yTicks;i++){
+    const v = max*i/yTicks;
+    const y = padT+plotH-(v/max)*plotH;
+    svg.appendChild(svgEl('line',{x1:padL,x2:width-padR,y1:y,y2:y,class:'gridline'}));
+    const t = svgEl('text',{x:padL-6,y:y+3,'text-anchor':'end'});
+    t.textContent = Math.round(v*10)/10;
+    svg.appendChild(t);
+  }
+
+  const n = labels.length;
+  const slot = plotW/n;
+  const barW = Math.min(28, slot*0.55);
+  values.forEach((v,i)=>{
+    const x = padL + i*slot + slot/2 - barW/2;
+    const h = (v/max)*plotH;
+    const y = padT+plotH-h;
+    const rect = svgEl('rect',{x,y,width:barW,height:Math.max(h,0),fill:color,rx:2,class:'bar-hit'});
+    const title = svgEl('title',{});
+    title.textContent = `${labels[i]}: ${v}${unit}`;
+    rect.appendChild(title);
+    if(onBarClick){
+      rect.addEventListener('click', (evt)=>{ evt.stopPropagation(); onBarClick(i, evt); });
+    }
+    svg.appendChild(rect);
+    const xLabelEvery = Math.max(1, Math.ceil(n/10));
+    if(i%xLabelEvery===0){
+      const t = svgEl('text',{x:x+barW/2,y:height-8,'text-anchor':'middle'});
+      t.textContent = labels[i];
+      svg.appendChild(t);
+    }
+  });
+  svg.appendChild(svgEl('line',{x1:padL,x2:width-padR,y1:padT+plotH,y2:padT+plotH,class:'axisline'}));
+  container.appendChild(svg);
+}
+
+/* ---------------- KPI ---------------- */
+function renderKPI(){
+  const latest = RAW[RAW.length-1];
+  if(!latest) return;
+  const gridUp = latest.grid_avr_status==='Available';
+  document.getElementById('headerDot').className = 'pulse-dot'+(gridUp?'':' down');
+  document.getElementById('lastUpdated').textContent = latest.date+'  '+latest.time;
+
+  const totalAlerts = RAW.filter(r=>r.anomaly).length;
+  const lastDay = DATES[DATES.length-1];
+  const todayStats = dailyStats(BY_DATE[lastDay]||[]);
+
+  const kpis = [
+    { label:'Grid / AVR (last reading)', color: gridUp?'var(--green)':'var(--red)',
+      value:`<span class="led ${gridUp?'on':'off'}"></span>${gridUp?'Available':'Not Available'}`,
+      sub:`Healthy: ${latest.grid_avr_healthy}`, asof:`as of ${latest.time} on ${latest.date}` },
+    { label:'BESS Mode (last reading)', color: latest.bess_mode==='PQ'?'var(--cyan)':'var(--red)',
+      value: latest.bess_mode==='PQ' ? 'PQ · Grid-Following' : 'VSG · Grid-Forming',
+      sub:`Status: ${latest.bess_status}`, asof:`as of ${latest.time} on ${latest.date}` },
+    { label:'State of Charge (last reading)', color: socColor(latest.soc),
+      value:`${latest.soc}<span class="unit">%</span>`,
+      sub:`Today: ${todayStats.minSOC}% at ${todayStats.minSOCTime} → ${todayStats.maxSOC}% at ${todayStats.maxSOCTime}`,
+      asof:`as of ${latest.time}` },
+    { label:'Load (last reading)', color:'var(--load)',
+      value:`${latest.load_kw}<span class="unit">kW</span>`,
+      sub:`Peak today ${todayStats.peakLoad.toFixed(0)} kW`, asof:`as of ${latest.time}` },
+    { label:'Solar Output (last reading)', color:'var(--gold)',
+      value:`${latest.solar_power_kw}<span class="unit">kW</span>`,
+      sub:`Peak today ${todayStats.peakSolar.toFixed(0)} kW`, asof:`as of ${latest.time}` },
+    { label:'Grid Downtime (today)', color:'var(--red)',
+      value:`${fmtHrs(todayStats.downtimeHrs)}`,
+      sub:`${todayStats.switches} PQ⇄VSG switch(es) so far`, asof:lastDay },
+    { label:'Anomaly Flags', color: totalAlerts>0?'var(--amber)':'var(--green)',
+      value:`${totalAlerts}`, sub:`across ${RAW.length} logged readings`, asof:'all-time' },
+  ];
+
+  document.getElementById('kpiStrip').innerHTML = kpis.map(k=>`
+    <div class="kpi" style="--kpi-color:${k.color}">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-sub">${k.sub}</div>
+      <div class="kpi-asof">${k.asof}</div>
+    </div>`).join('');
+}
+
+/* ---------------- date select / day stats ---------------- */
+function renderDateSelect(selected){
+  const sel = document.getElementById('dateSelect');
+  sel.innerHTML = DATES.map(d=>`<option value="${d}" ${d===selected?'selected':''}>${d}</option>`).join('');
+  sel.onchange = ()=>renderDay(sel.value);
+}
+
+function renderDayStats(dateStr){
+  const recs = BY_DATE[dateStr]||[];
+  const st = dailyStats(recs);
+  const items = [
+    ['Readings logged', st.count],
+    ['Grid downtime', fmtHrs(st.downtimeHrs)],
+    ['PQ ⇄ VSG switches', st.switches],
+    ['SOC low → high', `${st.minSOC}% (${st.minSOCTime}) → ${st.maxSOC}% (${st.maxSOCTime})`],
+    ['Peak load', st.peakLoad.toFixed(0)+' kW'],
+    ['Peak solar', st.peakSolar.toFixed(0)+' kW'],
+    ['Anomaly flags', st.alerts],
+  ];
+  document.getElementById('dayStatsRow').innerHTML = `
+    <div style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:22px;padding:10px 4px;border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);">
+      ${items.map(([l,v])=>`<div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:2px;">${l}</div><div class="mono" style="font-size:14px;font-weight:600;color:#fff;">${v}</div></div>`).join('')}
+    </div>`;
+}
+
+/* ---------------- chart renders ---------------- */
+function renderPowerChart(dateStr){
+  const recs = (BY_DATE[dateStr]||[]).slice().sort((a,b)=>a.minutes-b.minutes);
+  renderLineChart('powerChart', {
+    labels: recs.map(r=>r.time),
+    yLabel:'kW', zeroLine:true, records: recs,
+    series:[
+      {name:'Grid (kW)', color:'#4fc3d9', data:recs.map(r=>r.grid_total_kw)},
+      {name:'BESS (kW)', color:'#34d399', data:recs.map(r=>r.bess_power_kw)},
+      {name:'Solar (kW)', color:'#f0a83c', data:recs.map(r=>r.solar_power_kw)},
+      {name:'Load (kW)', color:'#c9d4dc', data:recs.map(r=>r.load_kw)},
+    ]
+  });
+}
+
+function renderCurrentChart(dateStr, side){
+  const recs = (BY_DATE[dateStr]||[]).slice().sort((a,b)=>a.minutes-b.minutes);
+  const fieldMap = { grid:['grid_r_a','grid_y_a','grid_b_a'], bess:['bess_r_a','bess_y_a','bess_b_a'], solar:['solar_r_a','solar_y_a','solar_b_a'] };
+  const [fr,fy,fb] = fieldMap[side];
+  renderLineChart('currentChart', {
+    labels: recs.map(r=>r.time), yLabel:'Amps', records: recs,
+    series:[
+      {name:'R', color:'#f0554c', data:recs.map(r=>r[fr])},
+      {name:'Y', color:'#f5c518', data:recs.map(r=>r[fy])},
+      {name:'B', color:'#4f8ff0', data:recs.map(r=>r[fb])},
+    ]
+  });
+}
+
+function renderSOCChart(dateStr){
+  const recs = (BY_DATE[dateStr]||[]).slice().sort((a,b)=>a.minutes-b.minutes);
+  renderLineChart('socChart', {
+    labels: recs.map(r=>r.time), yLabel:'%', area:true, records: recs,
+    series:[{name:'SOC (%)', color:'#34d399', data:recs.map(r=>r.soc)}]
+  });
+}
+
+function showDaySummary(dateStr, stats, evt){
+  const tip = document.getElementById('pointTooltip');
+  tip.innerHTML = `
+    <span class="pt-close" id="ptCloseBtn">✕</span>
+    <div class="pt-time">${dateStr}</div>
+    <div class="pt-row"><span>Readings logged</span><b>${stats.count}</b></div>
+    <div class="pt-row"><span>Grid downtime</span><b>${fmtHrs(stats.downtimeHrs)}</b></div>
+    <div class="pt-row"><span>PQ ⇄ VSG switches</span><b>${stats.switches}</b></div>
+    <div class="pt-row"><span>SOC low → high</span><b>${stats.minSOC}% (${stats.minSOCTime}) → ${stats.maxSOC}% (${stats.maxSOCTime})</b></div>
+    <div class="pt-row"><span>Peak load</span><b>${stats.peakLoad.toFixed(0)} kW</b></div>
+    <div class="pt-row"><span>Peak solar</span><b>${stats.peakSolar.toFixed(0)} kW</b></div>
+    <div class="pt-row"><span>Anomaly flags</span><b>${stats.alerts}</b></div>
+  `;
+  tip.style.display = 'block';
+  const pad = 14;
+  let x = evt.clientX + pad, y = evt.clientY + pad;
+  const rect = tip.getBoundingClientRect();
+  if(x + rect.width > window.innerWidth - 10) x = evt.clientX - rect.width - pad;
+  if(y + rect.height > window.innerHeight - 10) y = evt.clientY - rect.height - pad;
+  tip.style.left = Math.max(10,x)+'px';
+  tip.style.top = Math.max(10,y)+'px';
+  document.getElementById('ptCloseBtn').addEventListener('click', (e)=>{ e.stopPropagation(); hidePointDetail(); });
+}
+
+function renderDowntimeChart(){
+  const stats = DATES.map(d=>dailyStats(BY_DATE[d]));
+  renderBarChart('downtimeChart', {
+    labels: DATES.map(d=>d.slice(5)),
+    values: stats.map(s=>+s.downtimeHrs.toFixed(2)),
+    color:'#f0554c', unit:' hrs',
+    onBarClick: (i, evt)=> showDaySummary(DATES[i], stats[i], evt)
+  });
+}
+
+/* ---------------- gantt ---------------- */
+function renderGantt(){
+  const body = document.getElementById('ganttBody');
+  body.innerHTML = DATES.map(d=>{
+    const recs=[...BY_DATE[d]].sort((a,b)=>a.minutes-b.minutes);
+    let segs='';
+    recs.forEach((r,i)=>{
+      const nextMin=(i+1<recs.length)?recs[i+1].minutes:24*60;
+      const widthPct=((nextMin-r.minutes)/(24*60))*100;
+      const color = r.grid_avr_status==='Available' ? 'var(--green)' : 'var(--red)';
+      segs+=`<div class="gantt-seg" style="width:${widthPct}%;background:${color}" title="${r.time} — ${r.bess_mode} / ${r.grid_avr_status}"></div>`;
+    });
+    return `<div class="gantt-row"><div class="gantt-date mono">${d}</div><div class="gantt-track">${segs}</div></div>`;
+  }).join('');
+}
+
+/* ---------------- events ---------------- */
+function renderEvents(){
+  const events = buildTransitionEvents();
+  const list = document.getElementById('eventsList');
+  if(events.length===0){ list.innerHTML='<div class="empty-note">No mode transitions recorded.</div>'; return; }
+  list.innerHTML = events.map(e=>`
+    <div class="event-row">
+      <div class="event-time mono">${e.dt}</div>
+      <div class="event-badge ${e.badgeClass}">${e.badge}</div>
+      <div class="event-desc">${e.desc}</div>
+    </div>`).join('');
+}
+
+/* ---------------- table ---------------- */
+function renderTable(dateStr){
+  document.getElementById('tableDateLabel').textContent = dateStr;
+  const recs = (BY_DATE[dateStr]||[]).slice().sort((a,b)=>a.minutes-b.minutes);
+  const anomalyCount = recs.filter(r=>r.anomaly).length;
+  document.getElementById('tableAnomalyCount').textContent = anomalyCount>0 ? `${anomalyCount} flagged reading(s)` : 'No anomalies flagged';
+  document.getElementById('readingsBody').innerHTML = recs.map(r=>{
+    const modeTag = r.bess_mode==='PQ' ? '<span class="tag tag-pq">PQ</span>' : '<span class="tag tag-vsg">VSG</span>';
+    const statusClass = r.bess_status==='Charging'?'tag-charge':(r.bess_status==='Discharging'?'tag-discharge':'tag-idle');
+    let rowClass = '';
+    if(r.gridFaultFlag) rowClass='anomaly-fault';
+    else if(r.unbalanceFlag) rowClass='anomaly-unbalance';
+    if(r._edited) rowClass += ' edited-row';
+    const originTag = r._added ? '<span class="row-tag added">added</span>' : (r._edited ? '<span class="row-tag edited">edited</span>' : '');
+    return `<tr class="${rowClass}">
+      <td>${r.time}<button type="button" class="edit-btn" data-key="${recordKey(r)}" title="Edit this reading">✎</button></td>
+      <td>${r.grid_avr_status==='Available' ? '<span class="led on"></span>Up' : '<span class="led off"></span>Down'}</td>
+      <td>${r.avr_r}/${r.avr_y}/${r.avr_b}</td>
+      <td>${r.grid_r_a}/${r.grid_y_a}/${r.grid_b_a}</td>
+      <td>${r.grid_total_kw}</td>
+      <td>${modeTag}</td>
+      <td><span class="${statusClass}">${r.bess_status}</span></td>
+      <td>${r.soc}%</td>
+      <td>${r.bess_r_a}/${r.bess_y_a}/${r.bess_b_a}</td>
+      <td>${r.bess_power_kw}</td>
+      <td>${r.solar_r_a}/${r.solar_y_a}/${r.solar_b_a}</td>
+      <td>${r.solar_power_kw}</td>
+      <td>${r.load_kw}</td>
+      <td class="remarks-cell">${r.remarks||''} ${originTag}</td>
+    </tr>`;
+  }).join('');
+
+  document.querySelectorAll('#readingsBody .edit-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const key = btn.dataset.key;
+      const rec = RAW.find(r=>recordKey(r)===key);
+      if(rec) openEditForm(rec);
+    });
+  });
+}
+
+/* ---------------- tabs ---------------- */
+document.getElementById('currentTabs').addEventListener('click',(e)=>{
+  const tab=e.target.closest('.tab'); if(!tab) return;
+  document.querySelectorAll('#currentTabs .tab').forEach(t=>t.classList.remove('active'));
+  tab.classList.add('active'); currentSide=tab.dataset.side;
+  renderCurrentChart(document.getElementById('dateSelect').value, currentSide);
+});
+
+/* ---------------- master render ---------------- */
+function renderDay(dateStr){
+  renderDayStats(dateStr);
+  renderPowerChart(dateStr);
+  renderCurrentChart(dateStr, currentSide);
+  renderSOCChart(dateStr);
+  renderTable(dateStr);
+}
+function renderAll(){
+  buildIndexes();
+  renderKPI();
+  const last = DATES[DATES.length-1];
+  renderDateSelect(last);
+  renderDay(last);
+  renderGantt();
+  renderDowntimeChart();
+  renderEvents();
+}
+
+/* ---------------- add / edit reading form + storage ---------------- */
+function openAddReadingPanel(){
+  document.getElementById('addReadingBody').classList.add('open');
+  const el = document.getElementById('addReadingToggle');
+  if(el && typeof el.scrollIntoView === 'function') el.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+document.getElementById('addReadingToggle').addEventListener('click', ()=>{
+  const body = document.getElementById('addReadingBody');
+  body.classList.toggle('open');
+  if(!body.classList.contains('open')) cancelEdit();
+  updateAddReadingHint();
+  if(body.classList.contains('open') && !editingKey){
+    const now = new Date();
+    if(!document.getElementById('f_date').value) document.getElementById('f_date').value = now.toISOString().slice(0,10);
+    if(!document.getElementById('f_time').value) document.getElementById('f_time').value = now.toTimeString().slice(0,5);
+  }
+});
+
+function updateAddReadingHint(){
+  const hint = document.getElementById('addReadingHint');
+  const body = document.getElementById('addReadingBody');
+  if(editingKey){
+    hint.textContent = 'Editing an existing reading — change the fields and hit Update';
+  } else if(body.classList.contains('open')){
+    hint.textContent = 'Fill in the fields below and save — it appears instantly in every chart and table, and stays saved';
+  } else {
+    hint.textContent = 'Click to expand — saved readings stay in this dashboard even after closing the tab';
+  }
+}
+
+document.getElementById('f_grid_status').addEventListener('change', updateModeDisplay);
+function updateModeDisplay(){
+  const status = document.getElementById('f_grid_status').value;
+  const mode = status==='Available' ? 'PQ' : 'VSG';
+  const disp = document.getElementById('f_mode_display');
+  disp.textContent = mode + (mode==='PQ' ? ' · Grid-Following' : ' · Grid-Forming');
+  disp.style.color = mode==='PQ' ? '#7ee6ac' : '#ff9a92';
+}
+updateModeDisplay();
+
+function fillForm(rec){
+  const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.value = (v===undefined||v===null)?'':v; };
+  set('f_date', rec.date); set('f_time', rec.time);
+  set('f_grid_status', rec.grid_avr_status); set('f_grid_healthy', rec.grid_avr_healthy);
+  set('f_avr_r', rec.avr_r); set('f_avr_y', rec.avr_y); set('f_avr_b', rec.avr_b);
+  set('f_grid_r_a', rec.grid_r_a); set('f_grid_y_a', rec.grid_y_a); set('f_grid_b_a', rec.grid_b_a); set('f_grid_n_a', rec.grid_n_a);
+  set('f_grid_r_kw', rec.grid_r_kw); set('f_grid_y_kw', rec.grid_y_kw); set('f_grid_b_kw', rec.grid_b_kw); set('f_grid_total_kw', rec.grid_total_kw);
+  set('f_bess_status', rec.bess_status); set('f_soc', rec.soc);
+  set('f_bess_r_a', rec.bess_r_a); set('f_bess_y_a', rec.bess_y_a); set('f_bess_b_a', rec.bess_b_a); set('f_bess_n_a', rec.bess_n_a);
+  set('f_bess_r_kw', rec.bess_r_kw); set('f_bess_y_kw', rec.bess_y_kw); set('f_bess_b_kw', rec.bess_b_kw); set('f_bess_power_kw', rec.bess_power_kw);
+  set('f_solar_r_a', rec.solar_r_a); set('f_solar_y_a', rec.solar_y_a); set('f_solar_b_a', rec.solar_b_a);
+  set('f_solar_r_kw', rec.solar_r_kw); set('f_solar_y_kw', rec.solar_y_kw); set('f_solar_b_kw', rec.solar_b_kw); set('f_solar_power_kw', rec.solar_power_kw);
+  set('f_load_kw', rec.load_kw); set('f_remarks', rec.remarks);
+  updateModeDisplay();
+}
+
+function openEditForm(rec){
+  editingKey = recordKey(rec);
+  fillForm(rec);
+  document.getElementById('addReadingBody').classList.add('open');
+  document.getElementById('submitBtnLabel').textContent = '💾 Update Reading';
+  document.getElementById('cancelEditBtn').style.display = 'inline-flex';
+  updateAddReadingHint();
+  openAddReadingPanel();
+}
+
+function cancelEdit(){
+  editingKey = null;
+  document.getElementById('readingForm').reset();
+  document.getElementById('submitBtnLabel').textContent = '💾 Save Reading';
+  document.getElementById('cancelEditBtn').style.display = 'none';
+  updateModeDisplay();
+  updateAddReadingHint();
+}
+document.getElementById('cancelEditBtn').addEventListener('click', cancelEdit);
+
+async function loadOverrides(){
+  try{
+    const res = await window.storage.get(STORAGE_KEY, false);
+    OVERRIDES = res && res.value ? JSON.parse(res.value) : {};
+  }catch(e){
+    OVERRIDES = {};
+  }
+}
+async function saveOverrides(){
+  try{
+    await window.storage.set(STORAGE_KEY, JSON.stringify(OVERRIDES), false);
+  }catch(e){
+    console.error('Could not persist reading overrides', e);
+  }
+}
+
+function rebuildRawFromSources(){
+  const baseData = Array.isArray(window.__DIN_FARM_ACTIVE_DATA) ? window.__DIN_FARM_ACTIVE_DATA : EMBEDDED_DATA;
+  const merged = mergeWithOverrides(JSON.parse(JSON.stringify(baseData)), OVERRIDES);
+  RAW = processRecords(merged);
+}
+
+document.getElementById('readingForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const val = id => document.getElementById(id).value;
+  const num = id => Number(document.getElementById(id).value) || 0;
+  const date = val('f_date'), time = val('f_time');
+  const msg = document.getElementById('formMsg');
+  if(!date || !time){ msg.textContent='Date aur time zaroori hain.'; msg.className='form-msg err'; return; }
+
+  const gridStatus = val('f_grid_status');
+  const timeStr = time.length===5?time:time.slice(0,5);
+  const rec = {
+    date, time: timeStr,
+    grid_avr_status: gridStatus,
+    grid_avr_healthy: val('f_grid_healthy'),
+    avr_r: num('f_avr_r'), avr_y: num('f_avr_y'), avr_b: num('f_avr_b'),
+    grid_r_a: num('f_grid_r_a'), grid_y_a: num('f_grid_y_a'), grid_b_a: num('f_grid_b_a'), grid_n_a: num('f_grid_n_a'),
+    grid_r_kw: num('f_grid_r_kw'), grid_y_kw: num('f_grid_y_kw'), grid_b_kw: num('f_grid_b_kw'), grid_total_kw: num('f_grid_total_kw'),
+    bess_mode: gridStatus==='Available' ? 'PQ' : 'VSG',
+    bess_status: val('f_bess_status'), soc: num('f_soc'),
+    bess_r_a: num('f_bess_r_a'), bess_y_a: num('f_bess_y_a'), bess_b_a: num('f_bess_b_a'), bess_n_a: num('f_bess_n_a'),
+    bess_r_kw: num('f_bess_r_kw'), bess_y_kw: num('f_bess_y_kw'), bess_b_kw: num('f_bess_b_kw'), bess_power_kw: num('f_bess_power_kw'),
+    solar_r_a: num('f_solar_r_a'), solar_y_a: num('f_solar_y_a'), solar_b_a: num('f_solar_b_a'),
+    solar_r_kw: num('f_solar_r_kw'), solar_y_kw: num('f_solar_y_kw'), solar_b_kw: num('f_solar_b_kw'), solar_power_kw: num('f_solar_power_kw'),
+    load_kw: num('f_load_kw'), remarks: val('f_remarks')
+  };
+  const newKey = recordKey(rec);
+
+  if(editingKey && editingKey !== newKey){
+    // record was moved to a different date/time while editing — retire the old slot
+    OVERRIDES[editingKey] = {_deleted:true};
+  }
+  OVERRIDES[newKey] = rec;
+  await saveOverrides();
+  rebuildRawFromSources();
+  renderAll();
+  const sel = document.getElementById('dateSelect');
+  sel.value = date; renderDay(date);
+
+  msg.textContent = editingKey ? `Updated — ${date} ${timeStr} reading saved.` : `Saved — ${date} ${timeStr} reading added.`;
+  msg.className = 'form-msg ok';
+  cancelEdit();
+  document.getElementById('f_date').value = date;
+});
+
+document.getElementById('clearManualBtn').addEventListener('click', async ()=>{
+  if(!confirm('Saare manual edits aur naye add kiye gaye readings hata kar original log par wapis jayein?')) return;
+  OVERRIDES = {};
+  await saveOverrides();
+  rebuildRawFromSources();
+  renderAll();
+  cancelEdit();
+  const msg = document.getElementById('formMsg');
+  msg.textContent = 'All manual edits and additions cleared — back to the original log.';
+  msg.className = 'form-msg ok';
+});
+
+/* ---------------- date navigation ---------------- */
+document.getElementById('prevDayBtn').addEventListener('click', ()=>{
+  const sel = document.getElementById('dateSelect');
+  const i = DATES.indexOf(sel.value);
+  if(i>0){ sel.value = DATES[i-1]; renderDay(sel.value); }
+});
+document.getElementById('nextDayBtn').addEventListener('click', ()=>{
+  const sel = document.getElementById('dateSelect');
+  const i = DATES.indexOf(sel.value);
+  if(i>=0 && i<DATES.length-1){ sel.value = DATES[i+1]; renderDay(sel.value); }
+});
+document.getElementById('todayBtn').addEventListener('click', ()=>{
+  const sel = document.getElementById('dateSelect');
+  const last = DATES[DATES.length-1];
+  sel.value = last; renderDay(last);
+});
+
+window.addEventListener('resize', ()=>{
+  const sel = document.getElementById('dateSelect');
+  if(sel && sel.value) renderDay(sel.value);
+  renderDowntimeChart();
+});
+
+/* ---------------- init ---------------- */
+(async function init(){
+  try {
+    const cloud = await cloudJsonp({action:'get', key:'control_data'});
+    if (cloud && cloud.ok && cloud.value) {
+      try {
+        const parsed = JSON.parse(cloud.value);
+        if (Array.isArray(parsed) && parsed.length) window.__DIN_FARM_CLOUD_DATA = parsed;
+      } catch(e) { console.warn('Control Room cloud data parse failed:', e); }
+    }
+  } catch(e) { console.warn('Control Room cloud data load failed:', e); }
+  if (Array.isArray(window.__DIN_FARM_CLOUD_DATA) && window.__DIN_FARM_CLOUD_DATA.length) {
+    // Keep the original constant as a fallback, but render the cloud copy when available.
+    window.__DIN_FARM_ACTIVE_DATA = window.__DIN_FARM_CLOUD_DATA;
+  } else {
+    window.__DIN_FARM_ACTIVE_DATA = EMBEDDED_DATA;
+  }
+  await loadOverrides();
+  rebuildRawFromSources();
+  renderAll();
+})();
+</script>
+<script>
+(async()=>{try{const r=await fetch('/api/me');const m=await r.json();if(!m.ok){location.href='/login';return;}
+if(m.role!=='admin'){document.querySelectorAll('#addReadingToggle,#readingForm,.edit-btn,.delete-btn,[data-action="edit"],[data-action="delete"]').forEach(x=>x.style.display='none');}
+}catch(e){location.href='/login';}})();
+</script>
+</body>
+</html>
